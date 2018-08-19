@@ -1,4 +1,4 @@
-package com.adamratzman.forms.backend.common
+package com.adamratzman.forms.common.models
 
 data class LoginSuccess(val status: Int, val user: User) : LoginResult()
 

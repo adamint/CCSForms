@@ -1,7 +1,7 @@
 package com.adamratzman.forms.backend.main
 
-import com.adamratzman.forms.backend.common.*
-import com.adamratzman.forms.backend.utils.asPojo
+import com.adamratzman.forms.common.models.*
+import com.adamratzman.forms.common.utils.asPojo
 import com.google.common.hash.Hashing
 import com.google.gson.Gson
 import com.rethinkdb.RethinkDB.r
@@ -22,9 +22,8 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
         val hashedPassword = getHashedPassword(password, salt)
         println("Insert details: password: $password salt: ${salt.map { it.toInt() }} hash: ${hashedPassword.map { it.toInt() }}")
         r.table("logins").insert(r.json(gson.toJson(UserLogin(username, salt, hashedPassword)))).run<Any>(conn)
-        r.table("users").insert(r.json(gson.toJson(User(username, role, mutableListOf())))).run<Any>(conn)
+        r.table("users").insert(r.json(gson.toJson(User(username, role)))).run<Any>(conn)
     }
-
 
     fun checkLogin(username: String, password: String): LoginResult {
         return when {
@@ -42,8 +41,6 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
     fun verifyLogin(username: String, password: String): LoginResult {
         val login = asPojo(gson, r.table("logins").get(username).run(conn), UserLogin::class.java)
                 ?: return LoginFailure(404, "An invalid username or password was specified", 0)
-        println(login.hash.map { it.toInt() })
-        println(getHashedPassword(password, login.salt).map { it.toInt() })
 
         val user = if (login.hash.contentEquals(getHashedPassword(password, login.salt))) {
             asPojo(gson, r.table("users").get(username).run(conn), User::class.java)
@@ -54,11 +51,7 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
                 retryWaiting[username] = System.currentTimeMillis() + (1000 * 60)
                 60
             } else {
-                val value = (retryWaiting[username]!! - System.currentTimeMillis()) / 1000
-                if (value <= 0) {
-                    retryWaiting.remove(username)
-                    0
-                } else value
+                (retryWaiting[username]!! - System.currentTimeMillis()) / 1000
             }
         } else 0
 
@@ -74,6 +67,7 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
      * Precondition: username exists
      */
     fun canLogin(username: String): Boolean {
+        retryWaiting[username]?.let { if ((it - System.currentTimeMillis()) / 1000 <= 0) retryWaiting.remove(username) }
         return retryWaiting[username] == null && getLoginAttemptsPastMinute(username) <= 3
     }
 

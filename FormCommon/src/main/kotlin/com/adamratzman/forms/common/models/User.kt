@@ -1,4 +1,4 @@
-package com.adamratzman.forms.backend.common
+package com.adamratzman.forms.common.models
 
 import java.util.*
 
@@ -24,7 +24,7 @@ data class UserLogin(val username: String, val salt: ByteArray, val hash: ByteAr
     }
 }
 
-data class User(val username: String, val role: Role, val logins: MutableList<Long>)
+data class User(val username: String, val role: Role)
 
 enum class Role{
     STUDENT, TEACHER, COUNSELOR, ADMIN

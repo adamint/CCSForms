@@ -1,10 +1,10 @@
 package com.adamratzman.forms.backend.main
 
-import com.adamratzman.forms.backend.common.Role
-import com.adamratzman.forms.backend.common.SpringUserResponse
-import com.adamratzman.forms.backend.common.User
-import com.adamratzman.forms.backend.common.UserLogin
-import com.adamratzman.forms.backend.utils.asPojo
+import com.adamratzman.forms.common.models.Role
+import com.adamratzman.forms.common.models.SpringUserResponse
+import com.adamratzman.forms.common.models.User
+import com.adamratzman.forms.common.models.UserLogin
+import com.adamratzman.forms.common.utils.asPojo
 import com.google.gson.Gson
 import com.rethinkdb.RethinkDB.r
 import org.apache.commons.lang3.RandomStringUtils
@@ -37,7 +37,6 @@ class FormBackend(val gson: Gson = Gson()) {
         }
     }
 
-
     fun databaseSetup() {
         if (!r.dbList().run<List<String>>(conn).contains("chs")) {
             println("Creating database `chs`")
@@ -64,6 +63,10 @@ class FormBackend(val gson: Gson = Gson()) {
             val password = RandomStringUtils.randomAlphanumeric(12)
             println("Initial setup | Admin user - username: admin - password: $password")
             loginUtils.insertUser("admin", password, Role.ADMIN)
+
+            // Insert some test students as well
+            loginUtils.insertUser("student", "chsrocks", Role.STUDENT)
+            loginUtils.insertUser("student1", "password", Role.STUDENT)
         }
     }
 }

@@ -21,11 +21,9 @@ repositories {
 }
 
 dependencies {
+    compile project(':FormCommon')
     compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'
     compile group: 'com.google.guava', name: 'guava', version: '26.0-jre'
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-    compile 'com.google.code.gson:gson:2.8.5'
-    compile group: 'com.rethinkdb', name: 'rethinkdb-driver', version: '2.3.3'
     compile "com.sparkjava:spark-core:2.7.2"
 }
 

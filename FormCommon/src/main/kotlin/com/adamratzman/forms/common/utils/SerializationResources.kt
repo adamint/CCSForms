@@ -1,4 +1,4 @@
-package com.adamratzman.forms.backend.utils
+package com.adamratzman.forms.common.utils
 
 import com.google.gson.Gson
 import com.rethinkdb.net.Cursor

@@ -1,2 +1,3 @@
 rootProject.name = 'FormFrontend'
-
+include ':FormCommon'
+project(':FormCommon').projectDir = new File(settingsDir, '../FormCommon')
