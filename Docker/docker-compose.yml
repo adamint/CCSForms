@@ -1,0 +1,35 @@
+version: '3'
+services:
+  #frontend:
+   # build:
+    #  context: ../FormFrontend
+    #image: adamratzman/ccs-forms-frontend
+    #ports:
+    #  - "80:80"
+      # ssl will soon be enabled, but not yet!
+    #networks:
+    #  - application
+  backend:
+    build:
+      context: ../FormBackend
+    image: adamratzman/ccs-forms-backend
+    networks:
+      - application
+      - db
+    depends_on:
+      - database
+  database:
+    image: rethinkdb
+    networks:
+      - db
+    volumes:
+      - rethinkdb:/data
+    ports:
+    - "8080:8080"
+
+networks:
+  application:
+  db:
+
+volumes:
+  rethinkdb:
