@@ -1,9 +1,6 @@
 package com.adamratzman.forms.frontend
 
-import com.adamratzman.forms.common.models.LoginFailure
-import com.adamratzman.forms.common.models.LoginSuccess
-import com.adamratzman.forms.common.models.Role
-import com.adamratzman.forms.common.models.User
+import com.adamratzman.forms.common.models.*
 import com.google.gson.Gson
 import org.jsoup.Jsoup
 import spark.ModelAndView
@@ -34,7 +31,7 @@ class FormFrontend {
             val map = getMap(request, "Home")
             when {
                 map["user"] != null -> response.redirect("/")
-                request.queryParams("redirect") == null -> response.redirect("/login?redirect=${URLEncoder.encode("/?login=true", "UTF-8")}")
+                request.queryParams("redirect") == null -> response.redirect(getLoginRedirect("/?login=true"))
                 else -> handlebars.render(ModelAndView(map, "login.hbs"))
             }
         }
@@ -64,6 +61,23 @@ class FormFrontend {
                 e.printStackTrace()
             }
         }
+
+        path("/forms") {
+            get("/create") { request, response ->
+                val map = getMap(request, "Form Creation")
+                if (map["user"] == null) response.redirect(getLoginRedirect("/forms/create"))
+                else {
+                    val availableCategories = mutableListOf(FormCategory.PERSONAL)
+                    val role = map["role"] as Role
+                    if (role == Role.ATHLETICS || role == Role.ADMIN) availableCategories.add(FormCategory.ATHLETICS)
+                    if (role == Role.COUNSELING || role == Role.ADMIN) availableCategories.add(FormCategory.COUNSELING)
+
+                    map["availableCategories"] = availableCategories
+                    map["notStudent"] = role != Role.STUDENT
+                    handlebars.render(ModelAndView(map, "create-form.hbs"))
+                }
+            }
+        }
     }
 
     private fun getMap(request: Request, pageTitle: String): HashMap<String, Any?> {
@@ -76,4 +90,6 @@ class FormFrontend {
 
         return map
     }
+
+    private fun getLoginRedirect(url: String) = "/login?redirect=${URLEncoder.encode(url, "UTF-8")}"
 }

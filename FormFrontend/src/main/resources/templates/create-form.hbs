@@ -1,0 +1,68 @@
+{{> header.hbs }}
+
+<h2 class="uk-text-center">Create a form</h2>
+
+<div class="uk-flex uk-flex-center">
+    <form class="uk-form-stacked">
+        <div class="uk-margin uk-form-width-large">
+            <label class="uk-form-label" for="name">Form Name</label>
+            <div class="uk-form-controls">
+                <input class="uk-input" type="text" name="name" id="name" placeholder="Name">
+            </div>
+        </div>
+
+        <div class="uk-margin uk-form-width-large">
+            <label class="uk-form-label" for="multiple-submissions">Allow multiple submissions?</label>
+            <div class="uk-form-controls">
+                <select class="uk-select" id="multiple-submissions">
+                    <option value="yes">Yes</option>
+                    <option value="no" selected>No</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="uk-margin uk-form-width-large">
+            <label class="uk-form-label" for="category">Category</label>
+            <div class="uk-form-controls">
+                <select class="uk-select" id="category">
+                    {{#each availableCategories}}
+                        <option value="{{readable}}">{{readable}}</option>
+                    {{/each}}
+                </select>
+            </div>
+        </div>
+
+        <div class="uk-margin">
+            <h4>Who can submit this form?</h4>
+            <div class="uk-form-controls">
+                <input class="uk-checkbox" type="checkbox" name="submit-anyone" id="submit-anyone" checked> Anyone (no
+                login necessary)
+                <br>
+                <input class="uk-checkbox" type="checkbox" name="submit-students" id="submit-students" checked> Students
+                <br>
+                <input class="uk-checkbox" type="checkbox" name="submit-teachers" id="submit-teachers" checked> Teachers
+            </div>
+        </div>
+
+        {{#if notStudent}}
+            <div class="uk-margin">
+                <h4>Besides yourself, who can see the results?</h4>
+                <div class="uk-form-controls">
+                    <input class="uk-checkbox" type="checkbox" name="view-anyone" id="view-anyone"> Anyone
+                    (given a link)
+                    <br>
+                    <input class="uk-checkbox" type="checkbox" name="view-students" id="view-students">
+                    Students
+                    <br>
+                    <input class="uk-checkbox" type="checkbox" name="view-teachers" id="view-teachers">
+                    Teachers
+                    <br>
+                    <input class="uk-checkbox" type="checkbox" name="view-counseling" id="view-counseling">
+                    Counseling and Student Services
+                </div>
+            </div>
+        {{/if}}
+
+    </form>
+</div>
+{{> footer.hbs }}

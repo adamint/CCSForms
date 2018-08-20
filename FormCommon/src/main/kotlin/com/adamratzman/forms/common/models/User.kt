@@ -26,8 +26,10 @@ data class UserLogin(val username: String, val salt: ByteArray, val hash: ByteAr
 
 data class User(val username: String, val role: Role)
 
-enum class Role {
-    NOT_LOGGED_IN, STUDENT, TEACHER, COUNSELOR, ADMIN
+enum class Role(val readable: String, val position: Int) {
+    NOT_LOGGED_IN("Not Logged in", 0), STUDENT("Student", 1),
+    TEACHER("Teacher", 2), COUNSELING("Counseling and Student Services", 3),
+    ATHLETICS("Athletics", 4), ADMIN("Admin", 5)
 }
 
 data class SparkUserResponse(val user: User?, val login: UserLogin?)

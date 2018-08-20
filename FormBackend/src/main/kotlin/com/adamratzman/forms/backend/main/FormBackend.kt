@@ -1,15 +1,12 @@
 package com.adamratzman.forms.backend.main
 
-import com.adamratzman.forms.common.models.Role
-import com.adamratzman.forms.common.models.SparkUserResponse
-import com.adamratzman.forms.common.models.User
-import com.adamratzman.forms.common.models.UserLogin
+import com.adamratzman.forms.common.models.*
 import com.adamratzman.forms.common.utils.asPojo
+import com.adamratzman.forms.common.utils.queryAsArrayList
 import com.google.gson.Gson
 import com.rethinkdb.RethinkDB.r
 import org.apache.commons.lang3.RandomStringUtils
-import spark.Spark.get
-import spark.Spark.port
+import spark.Spark.*
 import java.util.concurrent.Executors
 
 val executor = Executors.newScheduledThreadPool(1)
@@ -26,15 +23,8 @@ class FormBackend(val gson: Gson = Gson()) {
         databaseSetup()
         port(80)
 
-        get("/login/:username/:password") { request, _ ->
-            gson.toJson(loginUtils.checkLogin(request.params("username"), request.params("password")))
-        }
-
-        get("/user/:username") { request, _ ->
-            val username = request.params("username")
-            gson.toJson(SparkUserResponse(asPojo(gson, r.table("users").get(username).run(conn), User::class.java),
-                    asPojo(gson, r.table("logins").get(username).run(conn), UserLogin::class.java)))
-        }
+        registerAuthenticationEndpoints()
+        registerFormRetrievalEndpoints()
     }
 
     fun databaseSetup() {
@@ -55,6 +45,11 @@ class FormBackend(val gson: Gson = Gson()) {
                         r.table(table).indexCreate("username").runNoReply(conn)
                     }
                     "logins" -> r.tableCreate(table).optArg("primary_key", "username").run<Any>(conn)
+                    "responses" -> {
+                        r.tableCreate(table).run<Any>(conn)
+                        r.table(table).indexCreate("formId").runNoReply(conn)
+                    }
+                    else -> r.tableCreate(table).run<Any>(conn)
                 }
             }
         }
@@ -68,5 +63,42 @@ class FormBackend(val gson: Gson = Gson()) {
             loginUtils.insertUser("student", "chsrocks", Role.STUDENT)
             loginUtils.insertUser("student1", "password", Role.STUDENT)
         }
+    }
+
+    private fun registerAuthenticationEndpoints() {
+        get("/login/:username/:password") { request, _ ->
+            gson.toJson(loginUtils.checkLogin(request.params("username"), request.params("password")))
+        }
+
+        get("/user/:username") { request, _ ->
+            gson.toJson(getUser(request.params("username")))
+        }
+    }
+
+    fun registerFormRetrievalEndpoints() {
+        path("/forms/available") {
+            get("/submit/:username") { request, _ ->
+                val username = request.params("username")
+                val role = getUser(username).user!!.role
+                val availableForms = getForms().filter { form ->
+                    (form.creator == username || form.allowedContributors.contains(username) ||
+                            form.submitRoles.contains(role)) &&
+                            (form.allowMultipleSubmissions || !getResponsesFor(form).map { it.submitter }.contains(username))
+                }
+                gson.toJson(availableForms)
+            }
+        }
+    }
+
+    fun getUser(username: String): SparkUserResponse {
+        return SparkUserResponse(asPojo(gson, r.table("users").get(username).run(conn), User::class.java),
+                asPojo(gson, r.table("logins").get(username).run(conn), UserLogin::class.java))
+    }
+
+    fun getForms(): List<Form> = r.table("forms").run<Any>(conn).queryAsArrayList(gson, Form::class.java).filterNotNull()
+
+    fun getResponsesFor(form: Form): List<FormResponse> {
+        return r.table("responses").getAll(form.id).optArg("index", "formId").run<Any>(conn)
+                .queryAsArrayList(gson, FormResponse::class.java).filterNotNull()
     }
 }
