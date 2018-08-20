@@ -1,0 +1,36 @@
+{{> header.hbs }}
+
+<script type="text/javascript">
+    if (window.location.search.substr(1) === "login=true") {
+        UIkit.notification("You've logged in! Use one of the links below to get started", 'success');
+    } else if (window.location.search.substr(1) === "logout=true") {
+        UIkit.notification("You've logged out!", 'primary');
+    }
+</script>
+
+<h1 class="uk-text-center">What would you like to do?</h1>
+
+<div class="uk-flex uk-flex-center uk-margin-medium-top">
+    <div class="uk-card uk-card-default uk-card-body">
+        <h3 class="uk-card-title">Submit a form</h3>
+        <p>Click <a href="/forms/available">here</a> to view forms available to you.</p>
+    </div>
+
+    <div class="uk-card uk-card-default uk-card-body uk-margin-left">
+        <h3 class="uk-card-title">Create a form</h3>
+        <p>Use our simple tool to <a href="/forms/create">create</a> a form.</p>
+    </div>
+
+    <div class="uk-card uk-card-default uk-card-body uk-margin-left">
+        <h3 class="uk-card-title">View Responses</h3>
+        <p>Click <a href="/forms/administrate">here</a> to administrate created forms.</p>
+    </div>
+</div>
+
+<h3 class="uk-text-center">How do I sign in?</h3>
+<div class="uk-text-center">
+    <p>You can log in using your school <b>username</b> and <b>password</b></p>
+    <p>However, some forms may not require you to log in. They will be listed under the available forms.</p>
+</div>
+
+{{> footer.hbs }}

@@ -26,8 +26,8 @@ data class UserLogin(val username: String, val salt: ByteArray, val hash: ByteAr
 
 data class User(val username: String, val role: Role)
 
-enum class Role{
-    STUDENT, TEACHER, COUNSELOR, ADMIN
+enum class Role {
+    NOT_LOGGED_IN, STUDENT, TEACHER, COUNSELOR, ADMIN
 }
 
-data class SpringUserResponse(val user: User?, val login: UserLogin?)
+data class SparkUserResponse(val user: User?, val login: UserLogin?)

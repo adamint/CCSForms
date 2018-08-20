@@ -1,7 +1,7 @@
 package com.adamratzman.forms.backend.main
 
 import com.adamratzman.forms.common.models.Role
-import com.adamratzman.forms.common.models.SpringUserResponse
+import com.adamratzman.forms.common.models.SparkUserResponse
 import com.adamratzman.forms.common.models.User
 import com.adamratzman.forms.common.models.UserLogin
 import com.adamratzman.forms.common.utils.asPojo
@@ -32,7 +32,7 @@ class FormBackend(val gson: Gson = Gson()) {
 
         get("/user/:username") { request, _ ->
             val username = request.params("username")
-            gson.toJson(SpringUserResponse(asPojo(gson, r.table("users").get(username).run(conn), User::class.java),
+            gson.toJson(SparkUserResponse(asPojo(gson, r.table("users").get(username).run(conn), User::class.java),
                     asPojo(gson, r.table("logins").get(username).run(conn), UserLogin::class.java)))
         }
     }

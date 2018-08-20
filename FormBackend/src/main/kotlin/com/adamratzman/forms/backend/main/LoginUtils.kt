@@ -20,7 +20,6 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
         val salt = ByteArray(16)
         random.nextBytes(salt)
         val hashedPassword = getHashedPassword(password, salt)
-        println("Insert details: password: $password salt: ${salt.map { it.toInt() }} hash: ${hashedPassword.map { it.toInt() }}")
         r.table("logins").insert(r.json(gson.toJson(UserLogin(username, salt, hashedPassword)))).run<Any>(conn)
         r.table("users").insert(r.json(gson.toJson(User(username, role)))).run<Any>(conn)
     }
@@ -28,7 +27,7 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
     fun checkLogin(username: String, password: String): LoginResult {
         return when {
             !usernameExists(username) -> LoginFailure(404, "Username not found", 0)
-            !canLogin(username) -> LoginFailure(402, "Cannot login right now",
+            !canLogin(username) -> LoginFailure(402, "Cannot login right now. Please retry in ${(retryWaiting[username]!! - System.currentTimeMillis()) / 1000} seconds",
                     (retryWaiting[username]!! - System.currentTimeMillis()) / 1000)
             else -> verifyLogin(username, password)
         }
@@ -40,7 +39,7 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
      */
     fun verifyLogin(username: String, password: String): LoginResult {
         val login = asPojo(gson, r.table("logins").get(username).run(conn), UserLogin::class.java)
-                ?: return LoginFailure(404, "An invalid username or password was specified", 0)
+                ?: return LoginFailure(404, "An invalid username or password was specified. Please retry.", 0)
 
         val user = if (login.hash.contentEquals(getHashedPassword(password, login.salt))) {
             asPojo(gson, r.table("users").get(username).run(conn), User::class.java)
@@ -55,7 +54,8 @@ class LoginUtils(val conn: Connection, val gson: Gson) {
             }
         } else 0
 
-        val loginResult = if (user == null) LoginFailure(401, "An invalid username or password was specified", retryAfter)
+        val loginResult = if (user == null) LoginFailure(401, "An invalid username or password was specified"
+                + if (retryAfter > 0) ". You can retry after $retryAfter seconds" else "", retryAfter)
         else LoginSuccess(200, user)
 
         r.table("login_attempts").insert(r.json(gson.toJson(LoginAttempt(System.currentTimeMillis(), username, loginResult)))).run<Any>(conn)

@@ -1,0 +1,29 @@
+{{> header.hbs }}
+
+<script type="text/javascript">passwordKeypressEnter()</script>
+
+<div class="uk-position-center" style="margin-top: -60px;">
+    <h2>Log in</h2>
+
+    <form>
+        <div class="uk-margin">
+            <div class="uk-inline uk-form-width-large">
+                <span class="uk-form-icon" uk-icon="icon: user"></span>
+                <input class="uk-input" type="text" name="username" id="username" placeholder="Username">
+            </div>
+        </div>
+
+        <div class="uk-margin">
+            <div class="uk-inline uk-form-width-large">
+                <span class="uk-form-icon uk-form-icon-flip" uk-icon="icon: lock"></span>
+                <input class="uk-input" type="password" name="password" id="password" placeholder="password">
+            </div>
+        </div>
+
+        <div class="uk-margin">
+            <button id="login-button" class="uk-button uk-button-primary" onclick="validateLogin()" form="">Log in
+            </button>
+        </div>
+    </form>
+</div>
+{{> footer.hbs }}
