@@ -5,6 +5,8 @@ import com.adamratzman.forms.common.utils.asPojo
 import com.adamratzman.forms.common.utils.queryAsArrayList
 import com.google.gson.Gson
 import com.rethinkdb.RethinkDB.r
+import com.rethinkdb.gen.exc.ReqlOpFailedError
+import com.rethinkdb.net.Connection
 import org.apache.commons.lang3.RandomStringUtils
 import spark.Spark.*
 import java.util.concurrent.Executors
@@ -16,8 +18,8 @@ fun main(args: Array<String>) {
 }
 
 class FormBackend(val gson: Gson = Gson()) {
-    val conn = r.connection().hostname("database").port(28015).db("chs").connect()
-    val loginUtils = LoginUtils(conn, gson)
+    lateinit var conn: Connection
+    lateinit var loginUtils: LoginUtils
 
     init {
         databaseSetup()
@@ -28,40 +30,52 @@ class FormBackend(val gson: Gson = Gson()) {
     }
 
     fun databaseSetup() {
-        if (!r.dbList().run<List<String>>(conn).contains("chs")) {
-            println("Creating database `chs`")
-            r.dbCreate("chs").run<Any>(conn)
-        }
-
-        val tables = listOf("users", "login_attempts", "forms", "responses", "logins")
-
-        tables.forEach { table ->
-            if (!r.tableList().run<List<String>>(conn).contains(table)) {
-                println("Creating table `$table`")
-                when (table) {
-                    "users" -> r.tableCreate(table).optArg("primary_key", "username").run<Any>(conn)
-                    "login_attempts" -> {
-                        r.tableCreate(table).run<Any>(conn)
-                        r.table(table).indexCreate("username").runNoReply(conn)
-                    }
-                    "logins" -> r.tableCreate(table).optArg("primary_key", "username").run<Any>(conn)
-                    "responses" -> {
-                        r.tableCreate(table).run<Any>(conn)
-                        r.table(table).indexCreate("formId").runNoReply(conn)
-                    }
-                    else -> r.tableCreate(table).run<Any>(conn)
-                }
+        while (true) {
+            try {
+                conn = r.connection().hostname("database").port(28015).db("chs").connect()
+                loginUtils = LoginUtils(conn, gson)
+                break
+            } catch (e: Exception) {
             }
         }
+        try {
+            if (!r.dbList().run<List<String>>(conn).contains("chs")) {
+                println("Creating database `chs`")
+                r.dbCreate("chs").run<Any>(conn)
+            }
 
-        if (r.table("users").count().run<Long>(conn) == 0L) {
-            val password = RandomStringUtils.randomAlphanumeric(12)
-            println("Initial setup | Admin user - username: admin - password: $password")
-            loginUtils.insertUser("admin", password, Role.ADMIN)
+            val tables = listOf("users", "login_attempts", "forms", "responses", "logins")
 
-            // Insert some test students as well
-            loginUtils.insertUser("student", "chsrocks", Role.STUDENT)
-            loginUtils.insertUser("student1", "password", Role.STUDENT)
+            tables.forEach { table ->
+                if (!r.tableList().run<List<String>>(conn).contains(table)) {
+                    println("Creating table `$table`")
+                    when (table) {
+                        "users" -> r.tableCreate(table).optArg("primary_key", "username").run<Any>(conn)
+                        "login_attempts" -> {
+                            r.tableCreate(table).run<Any>(conn)
+                            r.table(table).indexCreate("username").runNoReply(conn)
+                        }
+                        "logins" -> r.tableCreate(table).optArg("primary_key", "username").run<Any>(conn)
+                        "responses" -> {
+                            r.tableCreate(table).run<Any>(conn)
+                            r.table(table).indexCreate("formId").runNoReply(conn)
+                        }
+                        else -> r.tableCreate(table).run<Any>(conn)
+                    }
+                }
+            }
+
+            if (r.table("users").count().run<Long>(conn) == 0L) {
+                val password = RandomStringUtils.randomAlphanumeric(12)
+                println("Initial setup | Admin user - username: admin - password: $password")
+                loginUtils.insertUser("admin", password, Role.ADMIN)
+
+                // Insert some test students as well
+                loginUtils.insertUser("student", "chsrocks", Role.STUDENT)
+                loginUtils.insertUser("student1", "password", Role.STUDENT)
+            }
+        } catch (e: ReqlOpFailedError) {
+            databaseSetup()
         }
     }
 

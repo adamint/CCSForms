@@ -1,3 +1,7 @@
 #nav-name {
     font-size: 25px;
 }
+
+input.flatpickr {
+    cursor: pointer;
+}

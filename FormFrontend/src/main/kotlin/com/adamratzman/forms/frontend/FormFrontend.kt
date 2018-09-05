@@ -1,6 +1,8 @@
 package com.adamratzman.forms.frontend
 
 import com.adamratzman.forms.common.models.*
+import com.github.jknack.handlebars.Handlebars
+import com.github.jknack.handlebars.Options
 import com.google.gson.Gson
 import org.jsoup.Jsoup
 import spark.ModelAndView
@@ -21,6 +23,10 @@ class FormFrontend {
     init {
         port(80)
         staticFileLocation("/public")
+
+        registerHandlebarsHelpers()
+
+        exception(Exception::class.java) { exception, _, _ -> exception.printStackTrace() }
 
         get("/") { request, _ ->
             val map = getMap(request, "Home")
@@ -43,7 +49,7 @@ class FormFrontend {
 
         post("/login") { request, response ->
             try {
-                val map = getMap(request, "Home")
+                val map = getMap(request, "Login")
                 if (map["user"] != null) response.redirect("/")
                 else {
                     val username = request.queryParams("username")
@@ -63,10 +69,19 @@ class FormFrontend {
         }
 
         path("/forms") {
+            post("/initial-form-validation") { request, _ ->
+                val redirect = "/forms/create-questions?" +
+                        request.listOfCreationParams().joinToString("&") { "${it.first}=${encode(it.second?.toString() ?: "no")}" }
+                gson.toJson(StatusWithRedirect(200, redirect))
+            }
+
             get("/create") { request, response ->
                 val map = getMap(request, "Form Creation")
                 if (map["user"] == null) response.redirect(getLoginRedirect("/forms/create"))
                 else {
+                    request.listOfCreationParams().forEach { map[it.first] = it.second }
+
+                    map["datePicker"] = true
                     val availableCategories = mutableListOf(FormCategory.PERSONAL)
                     val role = map["role"] as Role
                     if (role == Role.ATHLETICS || role == Role.ADMIN) availableCategories.add(FormCategory.ATHLETICS)
@@ -80,6 +95,20 @@ class FormFrontend {
         }
     }
 
+    private fun Request.listOfCreationParams(): List<Pair<String, Any?>> {
+        return listOf("fn" to queryParams("formName"),
+                "ams" to queryParams("allowMultipleSubmissions")?.equals("yes"),
+                "c" to queryParams("category"),
+                "sa" to queryParams("submitAnyone")?.equals("on"),
+                "ss" to queryParams("submitStudents")?.equals("on"),
+                "st" to queryParams("submitTeachers")?.equals("on"),
+                "va" to queryParams("viewAnyone")?.equals("on"),
+                "vs" to queryParams("viewStudents"),
+                "vt" to queryParams("viewTeachers"),
+                "vc" to queryParams("viewCounseling"),
+                "ed" to queryParams("endDate"))
+    }
+
     private fun getMap(request: Request, pageTitle: String): HashMap<String, Any?> {
         val map = hashMapOf<String, Any?>()
         val session = request.session()
@@ -91,5 +120,17 @@ class FormFrontend {
         return map
     }
 
-    private fun getLoginRedirect(url: String) = "/login?redirect=${URLEncoder.encode(url, "UTF-8")}"
+    private fun getLoginRedirect(url: String) = "/login?redirect=${encode(url)}"
+    private fun encode(thing: String) = URLEncoder.encode(thing, "UTF-8")
+
+    private fun registerHandlebarsHelpers() {
+        val field = handlebars::class.java.getDeclaredField("handlebars")
+        field.isAccessible = true
+        val handle = field.get(handlebars) as Handlebars
+        handle.registerHelper("streq") { first: Any?, options: Options ->
+            if (options.params[0].toString().equals(first?.toString(), true)) {
+                options.fn()
+            } else options.inverse()
+        }
+    }
 }

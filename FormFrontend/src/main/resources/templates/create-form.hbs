@@ -3,11 +3,12 @@
 <h2 class="uk-text-center">Create a form</h2>
 
 <div class="uk-flex uk-flex-center">
-    <form class="uk-form-stacked">
+    <form id="initial-creation-form" class="uk-form-stacked">
         <div class="uk-margin uk-form-width-large">
             <label class="uk-form-label" for="name">Form Name</label>
             <div class="uk-form-controls">
-                <input class="uk-input" type="text" name="name" id="name" placeholder="Name">
+                <input class="uk-input" type="text" name="name" id="name" placeholder="Name"
+                       value="{{#if fn}}{{fn}}{{/if}}">
             </div>
         </div>
 
@@ -15,8 +16,8 @@
             <label class="uk-form-label" for="multiple-submissions">Allow multiple submissions?</label>
             <div class="uk-form-controls">
                 <select class="uk-select" id="multiple-submissions">
-                    <option value="yes">Yes</option>
-                    <option value="no" selected>No</option>
+                    <option value="yes" {{#if ams}}selected{{/if}}>Yes</option>
+                    <option value="no" {{#unless ams}}selected{{/unless}}>No</option>
                 </select>
             </div>
         </div>
@@ -26,7 +27,7 @@
             <div class="uk-form-controls">
                 <select class="uk-select" id="category">
                     {{#each availableCategories}}
-                        <option value="{{readable}}">{{readable}}</option>
+                        <option value="{{readable}}" {{#streq c readable}}selected{{/streq}}>{{readable}}</option>
                     {{/each}}
                 </select>
             </div>
@@ -35,12 +36,15 @@
         <div class="uk-margin">
             <h4>Who can submit this form?</h4>
             <div class="uk-form-controls">
-                <input class="uk-checkbox" type="checkbox" name="submit-anyone" id="submit-anyone" checked> Anyone (no
+                <input class="uk-checkbox" type="checkbox" name="submit-anyone" id="submit-anyone"
+                       {{#streq sa "off"}}{{else}}checked{{/streq}}> Anyone (no
                 login necessary)
                 <br>
-                <input class="uk-checkbox" type="checkbox" name="submit-students" id="submit-students" checked> Students
+                <input class="uk-checkbox" type="checkbox" name="submit-students" id="submit-students"
+                       {{#streq ss "off"}}{{else}}checked{{/streq}}> Students
                 <br>
-                <input class="uk-checkbox" type="checkbox" name="submit-teachers" id="submit-teachers" checked> Teachers
+                <input class="uk-checkbox" type="checkbox" name="submit-teachers" id="submit-teachers"
+                       {{#streq st "off"}}{{else}}checked{{/streq}}> Teachers
             </div>
         </div>
 
@@ -48,21 +52,55 @@
             <div class="uk-margin">
                 <h4>Besides yourself, who can see the results?</h4>
                 <div class="uk-form-controls">
-                    <input class="uk-checkbox" type="checkbox" name="view-anyone" id="view-anyone"> Anyone
+                    <input class="uk-checkbox" type="checkbox" name="view-anyone" id="view-anyone"
+                           {{#streq va "on"}}checked{{/streq}}> Anyone
                     (given a link)
                     <br>
-                    <input class="uk-checkbox" type="checkbox" name="view-students" id="view-students">
+                    <input class="uk-checkbox" type="checkbox" name="view-students" id="view-students"
+                           {{#streq vs "on"}}checked{{/streq}}>
                     Students
                     <br>
-                    <input class="uk-checkbox" type="checkbox" name="view-teachers" id="view-teachers">
+                    <input class="uk-checkbox" type="checkbox" name="view-teachers" id="view-teachers"
+                           {{#streq vt "on"}}checked{{/streq}}>
                     Teachers
                     <br>
-                    <input class="uk-checkbox" type="checkbox" name="view-counseling" id="view-counseling">
+                    <input class="uk-checkbox" type="checkbox" name="view-counseling" id="view-counseling"
+                           {{#streq vc "on"}}checked{{/streq}}>
                     Counseling and Student Services
                 </div>
             </div>
         {{/if}}
 
+        <div class="uk-margin uk-form-width-large">
+            <label class="uk-form-label" for="date-selector">Select an end date (optional)</label>
+            <div class="uk-form-controls">
+                <input class="uk-input" type="text" readonly="readonly" id="date-selector">
+            </div>
+        </div>
+
+        <div class="uk-margin" id="question-div">
+            <button id="continue-to-questions" class="uk-button uk-button-primary" onclick="createFormInitialValidation()" form="">
+                Continue to creating questions..
+            </button>
+        </div>
     </form>
 </div>
-{{> footer.hbs }}
+
+<script type="text/javascript">
+    flatpickr("#date-selector", {
+        minDate: "today",
+        altInput: true,
+        altFormat: "F j, Y",
+        dateFormat: "Y-m-d"
+        {{#streq ed "no"}}
+        {{else}}
+            {{#if ed}}
+                , defaultDate: new Date({{ed}})
+            {{/if}}
+        {{/streq}}
+    });
+</script>
+
+<script src="/js/creation.js"></script>
+
+{{> footer-block.hbs }}
