@@ -1,4 +1,3 @@
-var questions = [];
 var currId = 0;
 
 var mcType = {id: "mc", readable: "Multiple Choice"};
@@ -39,10 +38,11 @@ function createFormInitialValidation() {
 }
 
 function initializeQuestionCreation() {
+    $("#initial-creation-form").attr("style", "width: 55%");
     $("#continue-to-questions").remove();
     var questionDiv = $("#question-div");
     questionDiv.append("<div id='questions'></div>" +
-        "<a href='#question-" + currId + "' uk-icon=\"icon: plus-circle; ratio: 3;\" onclick='onNewQuestionClick()' class=\"uk-align-right\"></a>")
+        "<a id='new-question-button' href='#question-" + currId + "' uk-icon=\"icon: plus-circle; ratio: 3;\" onclick='onNewQuestionClick()' class=\"uk-align-right\"></a>")
     var doneButton = $("<button class='uk-button uk-button-primary' form=''>Create your form</button>");
     doneButton.click(function () {
         verifyFormCompletion();
@@ -58,6 +58,7 @@ function onNewQuestionClick() {
     questionDiv.appendTo($("#questions"));
     renderQuestionBox(questionDiv);
     currId++;
+    $("#question-div").find("a.uk-icon").first().attr("href", "#question-" + currId);
 }
 
 function renderQuestionBox(questionDiv) {
@@ -116,7 +117,7 @@ function appendQuestionCreation(questionDiv) {
         var addButton = $("<a class='uk-button uk-button-primary'>Add Option</a>");
         addButton.click(function () {
             var text = input.val();
-            if (text.length < 2) UIkit.notification("Option must be 2 or more characters", 'danger');
+            if (text.length === 0) UIkit.notification("Option must not be empty", 'danger');
             else if (options.includes(text)) UIkit.notification("Option has already been added", 'danger');
             else {
                 options.push(text);
@@ -164,7 +165,130 @@ function questionRemove(questionId) {
 }
 
 function verifyFormCompletion() {
+    var formId = $("#form-id").val();
     var formName = $("#name");
-    var allowMultipleSubmissions = $("#multiple-submissions")
+    var allowMultipleSubmissions = $("#multiple-submissions");
+    var category = $("#category").val();
+    var anyoneSubmit = $("#submit-anyone").prop("checked");
+    var studentSubmit = $("#submit-students").prop("checked");
+    var teacherSubmit = $("#submit-teachers").prop("checked");
+    var viewAnyone = $("#view-anyone").val();
+    var viewStudents = $("#view-students").val();
+    var viewTeachers = $("#view-teachers").val();
+    var viewCounseling = $("#view-counseling").val();
+    var date = flatpickr.parseDate($("#date-selector").val());
+    var millis = undefined;
+    if (date === undefined) millis = undefined; else millis = date.getTime();
 
+    if (formName.val().length < 4) {
+        formName.addClass("uk-form-danger");
+        UIkit.notification('The form name must be at least 4 characters', 'danger');
+        return
+    } else formName.removeClass("uk-form-danger");
+
+    if (anyoneSubmit === false &&
+        studentSubmit === false &&
+        teacherSubmit === false) {
+        UIkit.notification("You need to allow submissions from at least one group!", 'danger');
+        return
+    }
+
+    var submit = true;
+
+    var questions = [];
+    var children = $("#questions").children();
+    if (children.length === 0) {
+        UIkit.notification("You need at least one question!", 'danger');
+        return
+    }
+    children.each(function (index) {
+        var typeInt = parseInt($(this).find("select").first().val());
+        var question = $(this).find("textarea").first();
+        var questionName = question.val();
+        if (questionName.length < 10) {
+            question.addClass("uk-form-danger");
+            UIkit.notification("Question " + (index + 1) + " must be at least 10 characters in length!", 'danger');
+            submit = false;
+        } else question.removeClass("uk-form-danger");
+
+        if (typeInt < 4) {
+            var options = [];
+            $(this).find("tbody").first().children().each(function (index) {
+                options.push($(this).children().first().text());
+            });
+            if (options.length < 2) {
+                UIkit.notification("Question " + (index + 1) + " needs to have at least two choices", 'danger');
+                submit = false;
+            } else {
+                questions.push({
+                    'type': typeInt,
+                    'question': questionName,
+                    'options': options
+                })
+            }
+        }
+        else if (typeInt === 4) {
+            var characterLimit = $(this).find("input").first();
+            var characterLimitValue = parseInt(characterLimit);
+            if (characterLimitValue !== undefined && characterLimitValue === 0) {
+                characterLimit.addClass("uk-form-danger");
+                UIkit.notification("Question " + (index + 1) + " character limit can't be empty!", 'danger');
+                submit = false
+            } else {
+                characterLimit.removeClass("uk-form-danger");
+                questions.push({
+                    'type': typeInt,
+                    'question': questionName,
+                    'characterLimit': characterLimitValue
+                })
+            }
+        }
+        else if (typeInt === 5) {
+            var minimumNumber = $(this).find("input").first();
+            var minimumNumberValue = parseInt(minimumNumber.val());
+            var maximumNumber = $(this).find("input").eq(1);
+            var maximumNumberValue = parseInt(maximumNumber.val());
+            if (minimumNumberValue !== undefined && maximumNumberValue !== undefined
+                && minimumNumberValue >= maximumNumberValue) {
+                minimumNumber.addClass("uk-form-danger");
+                maximumNumber.addClass("uk-form-danger");
+                UIkit.notification("Question " + (index + 1) + " must have a maximum number greater than the minimum number", 'danger');
+                submit = false
+            } else {
+                minimumNumber.removeClass("uk-form-danger");
+                maximumNumber.removeClass("uk-form-danger");
+                questions.push({
+                    'type': typeInt,
+                    'question': questionName,
+                    'minimumNumber': minimumNumberValue,
+                    'maximiumNumber': maximumNumberValue
+                })
+            }
+        }
+    });
+
+    if (submit) {
+        var submitObject = {
+            'formId': formId,
+            'formName': formName.val(),
+            'allowMultipleSubmissions': allowMultipleSubmissions.val(),
+            'category': category,
+            'anyoneSubmit': anyoneSubmit,
+            'studentSubmit': studentSubmit,
+            'teacherSubmit': teacherSubmit,
+            'viewAnyone': viewAnyone,
+            'viewStudents': viewStudents,
+            'viewTeachers': viewTeachers,
+            'viewCounseling': viewCounseling,
+            'endDate': millis,
+            'questions': questions
+        };
+        console.log(submitObject);
+        console.log(JSON.stringify(submitObject))
+        $.post("/forms/create", JSON.stringify(submitObject), function (data) {
+            if (data.status === 200) {
+                window.location.replace(decodeURIComponent(params.redirect))
+            } else UIkit.notification(data.message, 'danger');
+        }, "json")
+    }
 }

@@ -25,6 +25,10 @@ class FormBackend(val gson: Gson = Gson()) {
         databaseSetup()
         port(80)
 
+        exception(Exception::class.java) {exception, _, _ ->
+            exception.printStackTrace()
+        }
+
         registerAuthenticationEndpoints()
         registerFormRetrievalEndpoints()
     }
@@ -66,9 +70,9 @@ class FormBackend(val gson: Gson = Gson()) {
             }
 
             if (r.table("users").count().run<Long>(conn) == 0L) {
-                val password = RandomStringUtils.randomAlphanumeric(12)
-                println("Initial setup | Admin user - username: admin - password: $password")
-                loginUtils.insertUser("admin", password, Role.ADMIN)
+                //val password = RandomStringUtils.randomAlphanumeric(12)
+                //println("Initial setup | Admin user - username: admin - password: $password")
+                loginUtils.insertUser("admin", "admin", Role.ADMIN)
 
                 // Insert some test students as well
                 loginUtils.insertUser("student", "chsrocks", Role.STUDENT)

@@ -4,6 +4,7 @@ import com.adamratzman.forms.common.models.*
 import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.Options
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import org.jsoup.Jsoup
 import spark.ModelAndView
 import spark.Request
@@ -71,7 +72,9 @@ class FormFrontend {
         path("/forms") {
             post("/initial-form-validation") { request, _ ->
                 val redirect = "/forms/create-questions?" +
-                        request.listOfCreationParams().joinToString("&") { "${it.first}=${encode(it.second?.toString() ?: "no")}" }
+                        request.listOfCreationParams().joinToString("&") {
+                            "${it.first}=${encode(it.second?.toString() ?: "no")}"
+                        }
                 gson.toJson(StatusWithRedirect(200, redirect))
             }
 
@@ -90,6 +93,23 @@ class FormFrontend {
                     map["availableCategories"] = availableCategories
                     map["notStudent"] = role != Role.STUDENT
                     handlebars.render(ModelAndView(map, "create-form.hbs"))
+                }
+            }
+
+            post("/create") { request, response ->
+                val map = getMap(request, "Form Creation")
+                if (map["user"] == null) response.redirect(getLoginRedirect("/forms/create"))
+                else {
+                    val json = JsonParser().parse(request.body())
+                    val status: StatusWithRedirect
+                    if (json.isJsonObject){
+                       val jsonObject = json.asJsonObject
+                        val formId = jsonObject.get("formId").asString
+                        // add and verify other variables. if everything looks good,
+                        // redirect to /forms/manage/formId
+                        // which does not exist lol
+                    } else status = StatusWithRedirect(400,null, "An unknown error occured")
+                    //gson.toJson(status)
                 }
             }
         }

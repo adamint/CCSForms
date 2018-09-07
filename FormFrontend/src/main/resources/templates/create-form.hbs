@@ -4,6 +4,7 @@
 
 <div class="uk-flex uk-flex-center">
     <form id="initial-creation-form" class="uk-form-stacked">
+        <input hidden id="form-id" type="text" value="{{formId}}">
         <div class="uk-margin uk-form-width-large">
             <label class="uk-form-label" for="name">Form Name</label>
             <div class="uk-form-controls">
@@ -79,7 +80,8 @@
         </div>
 
         <div class="uk-margin" id="question-div">
-            <button id="continue-to-questions" class="uk-button uk-button-primary" onclick="createFormInitialValidation()" form="">
+            <button id="continue-to-questions" class="uk-button uk-button-primary"
+                    onclick="createFormInitialValidation()" form="">
                 Continue to creating questions..
             </button>
         </div>

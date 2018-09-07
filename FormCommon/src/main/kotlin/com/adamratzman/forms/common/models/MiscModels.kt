@@ -1,3 +1,3 @@
 package com.adamratzman.forms.common.models
 
-data class StatusWithRedirect(val status: Int, val redirect: String)
+data class StatusWithRedirect(val status: Int, val redirect: String?, val message: String? = null)
