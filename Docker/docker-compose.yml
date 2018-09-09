@@ -1,8 +1,6 @@
 version: '3'
 services:
   frontend:
-    build:
-      context: ../FormFrontend
     image: adamratzman/ccs-forms-frontend
     ports:
     - "80:80"
@@ -10,8 +8,6 @@ services:
     networks:
     - application
   backend:
-    build:
-      context: ../FormBackend
     image: adamratzman/ccs-forms-backend
     networks:
     - application

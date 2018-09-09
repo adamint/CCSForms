@@ -8,6 +8,10 @@ var numType = {id: "num", readable: "Number Input"};
 
 var types = [mcType, checkType, dropType, textType, numType];
 
+function removeDate() {
+    document.querySelector("#date-selector")._flatpickr.clear();
+}
+
 function createFormInitialValidation() {
     var submit = true;
 
@@ -83,7 +87,7 @@ function renderQuestionBox(questionDiv) {
         "<label class='uk-form-label' for='question-" + currId + "-q'>Question text</label>" +
         "<div class='uk-form-controls'>" +
         "<textarea class='uk-textarea' id='question-" + currId + "-q'></textarea></div></div>");
-
+    questionDiv.append("<p>Required: <input type='checkbox' class='uk-checkbox' checked></p>");
     questionDiv.append("<div class=\"content\"></div>");
     questionDiv.append("<div class=\"uk-card-footer\">" +
         "<a onclick=\"questionRemove('" + questionDiv.attr("id") + "')\" class=\"uk-button uk-button-text\">Delete</a>\n" +
@@ -99,7 +103,7 @@ function appendQuestionCreation(questionDiv) {
 
     if (type.readable === textType.readable) {
         content.append("<p>Character limit: " +
-            "<input class='uk-input' type='number'></p>");
+            "<input class='uk-input ccs-char-limit' type='number'></p>");
         content.append("<p><i>Tip: keep this blank to have no limit</i></p>");
     } else if (type.readable === numType.readable) {
         content.append("<p>Minimum number: " +
@@ -172,10 +176,10 @@ function verifyFormCompletion() {
     var anyoneSubmit = $("#submit-anyone").prop("checked");
     var studentSubmit = $("#submit-students").prop("checked");
     var teacherSubmit = $("#submit-teachers").prop("checked");
-    var viewAnyone = $("#view-anyone").val();
-    var viewStudents = $("#view-students").val();
-    var viewTeachers = $("#view-teachers").val();
-    var viewCounseling = $("#view-counseling").val();
+    var viewAnyone = $("#view-anyone").prop("checked");
+    var viewStudents = $("#view-students").prop("checked");
+    var viewTeachers = $("#view-teachers").prop("checked");
+    var viewCounseling = $("#view-counseling").prop("checked");
     var date = flatpickr.parseDate($("#date-selector").val());
     var millis = undefined;
     if (date === undefined) millis = undefined; else millis = date.getTime();
@@ -205,6 +209,7 @@ function verifyFormCompletion() {
         var typeInt = parseInt($(this).find("select").first().val());
         var question = $(this).find("textarea").first();
         var questionName = question.val();
+        var required = $(this).find("input.uk-checkbox").first().prop("checked");
         if (questionName.length < 10) {
             question.addClass("uk-form-danger");
             UIkit.notification("Question " + (index + 1) + " must be at least 10 characters in length!", 'danger');
@@ -223,13 +228,14 @@ function verifyFormCompletion() {
                 questions.push({
                     'type': typeInt,
                     'question': questionName,
+                    'required': required,
                     'options': options
                 })
             }
         }
         else if (typeInt === 4) {
-            var characterLimit = $(this).find("input").first();
-            var characterLimitValue = parseInt(characterLimit);
+            var characterLimit = $(this).find("input.ccs-char-limit").first();
+            var characterLimitValue = parseInt(characterLimit.val());
             if (characterLimitValue !== undefined && characterLimitValue === 0) {
                 characterLimit.addClass("uk-form-danger");
                 UIkit.notification("Question " + (index + 1) + " character limit can't be empty!", 'danger');
@@ -239,14 +245,15 @@ function verifyFormCompletion() {
                 questions.push({
                     'type': typeInt,
                     'question': questionName,
+                    'required': required,
                     'characterLimit': characterLimitValue
                 })
             }
         }
         else if (typeInt === 5) {
-            var minimumNumber = $(this).find("input").first();
+            var minimumNumber = $(this).find("input.ccs-min-num").first();
             var minimumNumberValue = parseInt(minimumNumber.val());
-            var maximumNumber = $(this).find("input").eq(1);
+            var maximumNumber = $(this).find("input.ccs-max-num").first();
             var maximumNumberValue = parseInt(maximumNumber.val());
             if (minimumNumberValue !== undefined && maximumNumberValue !== undefined
                 && minimumNumberValue >= maximumNumberValue) {
@@ -260,8 +267,9 @@ function verifyFormCompletion() {
                 questions.push({
                     'type': typeInt,
                     'question': questionName,
+                    'required': required,
                     'minimumNumber': minimumNumberValue,
-                    'maximiumNumber': maximumNumberValue
+                    'maximumNumber': maximumNumberValue
                 })
             }
         }
@@ -286,9 +294,11 @@ function verifyFormCompletion() {
         console.log(submitObject);
         console.log(JSON.stringify(submitObject))
         $.post("/forms/create", JSON.stringify(submitObject), function (data) {
-            if (data.status === 200) {
-                window.location.replace(decodeURIComponent(params.redirect))
-            } else UIkit.notification(data.message, 'danger');
+            console.log(data)
+            if (data.status === 200 || data.status === 401) {
+               // window.location.replace(decodeURIComponent(data.redirect));
+            }
+            else UIkit.notification(data.message, 'danger');
         }, "json")
     }
 }

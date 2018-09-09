@@ -7,15 +7,22 @@ data class Form(val id: String, val creator: String, val name: String, val categ
                 val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>)
 
 data class FormResponse(val id: String, val submitter: String, val formId: String, val formQuestionAnswers: MutableList<FormQuestionAnswer>)
-data class FormQuestionAnswer(val questionPosition: Int, val response: String)
+data class FormQuestionAnswer(val position: Int, val response: String)
 
-abstract class FormQuestion(val position: Int, val title: String, val question: String)
+abstract class FormQuestion(val question: String, val required: Boolean)
+abstract class OptionsFormQuestion(question: String, required: Boolean, val options: MutableList<String>) : FormQuestion(question, required)
 
-class MultipleChoiceQuestion(position: Int, title: String, question: String, val options: MutableList<String>) : FormQuestion(position, title, question)
-class CheckboxQuestion(position: Int, title: String, question: String) : FormQuestion(position, title, question)
-class DropdownQuestion(position: Int, title: String, question: String, val options: MutableList<String>) : FormQuestion(position, title, question)
-class TextboxQuestion(position: Int, title: String, question: String, var type: TextboxType, var allowBlank: Boolean, var minimumCharacters: Int?,
-                      val options: MutableList<String>?) : FormQuestion(position, title, question)
+class MultipleChoiceQuestion(question: String, required: Boolean, options: MutableList<String>)
+    : OptionsFormQuestion(question, required, options)
+
+class CheckboxQuestion(question: String, required: Boolean, options: MutableList<String>)
+    : OptionsFormQuestion(question, required, options)
+
+class DropboxQuestion(question: String, required: Boolean, options: MutableList<String>)
+    : OptionsFormQuestion(question, required, options)
+
+class TextQuestion(question: String, required: Boolean, val characterLimit: Int?) : FormQuestion(question, required)
+class NumberQuestion(question: String, required: Boolean, val minimumNumber: Double?, val maximumNumber: Double?) : FormQuestion(question, required)
 
 enum class TextboxType(val readable: String) {
     NUMBER("Number"), DATE("Date"), TEXT("Any text")

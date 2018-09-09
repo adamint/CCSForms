@@ -4,7 +4,9 @@ import com.adamratzman.forms.common.models.*
 import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.Options
 import com.google.gson.Gson
-import com.google.gson.JsonParser
+import org.json.simple.JSONArray
+import org.json.simple.JSONObject
+import org.json.simple.parser.JSONParser
 import org.jsoup.Jsoup
 import spark.ModelAndView
 import spark.Request
@@ -97,20 +99,93 @@ class FormFrontend {
             }
 
             post("/create") { request, response ->
+                println(request.body())
+                val status: StatusWithRedirect
                 val map = getMap(request, "Form Creation")
-                if (map["user"] == null) response.redirect(getLoginRedirect("/forms/create"))
+                if (map["user"] == null) status = StatusWithRedirect(401, getLoginRedirect("/forms/create"))
                 else {
-                    val json = JsonParser().parse(request.body())
-                    val status: StatusWithRedirect
-                    if (json.isJsonObject){
-                       val jsonObject = json.asJsonObject
-                        val formId = jsonObject.get("formId").asString
+                    val jsonObject = JSONParser().parse(request.body()) as? JSONObject
+                    if (jsonObject != null) {
+                        var invalidMessage: String? = null
+
+                        val formId = (jsonObject["formId"] as? String)?.let { if (it.isBlank()) null else it }
+                        val formName = jsonObject["formName"] as? String
+
+                        val allowMultipleSubmissions = (jsonObject["allowMultipleSubmissions"] as? String) == "on"
+                        val category = (jsonObject["category"] as? String)?.let { strCat -> FormCategory.values().find { strCat == it.readable } }
+                                ?: FormCategory.PERSONAL
+
+                        val anyoneSubmit = jsonObject["anyoneSubmit"] as? Boolean ?: false
+                        val studentSubmit = jsonObject["studentSubmit"] as? Boolean ?: false
+                        val teacherSubmit = jsonObject["teacherSubmit"] as? Boolean ?: false
+
+
+                        val viewAnyone: Boolean?
+                        val viewStudents: Boolean?
+                        val viewTeachers: Boolean?
+                        val viewCounseling: Boolean?
+
+                        if ((map["user"] as User).role != Role.STUDENT) {
+                            viewAnyone = jsonObject["viewAnyone"] as? Boolean
+                            viewStudents = jsonObject["viewStudents"]as? Boolean
+                            viewTeachers = jsonObject["viewTeachers"]  as? Boolean
+                            viewCounseling = jsonObject["viewCounseling"]as? Boolean
+                        } else {
+                            viewAnyone = null
+                            viewStudents = null
+                            viewTeachers = null
+                            viewCounseling = null
+                        }
+
+                        val endDate = (jsonObject["endDate"] as? Long)?.let {
+                            if (it <= System.currentTimeMillis()) null else it
+                        }
+
+                        if (!anyoneSubmit && !studentSubmit && !teacherSubmit) invalidMessage = "A group must be able to submit this form"
+                        else {
+                            val questions = mutableListOf<FormQuestion>()
+                            (jsonObject["questions"] as? JSONArray)?.forEach { questionJson ->
+                                questionJson as JSONObject
+                                val questionType = (questionJson["type"] as? Long)?.toInt()
+                                val questionName = questionJson["question"] as? String
+                                val required = questionJson["required"] as? Boolean ?: true
+                                if (questionType !in 1..5 || questionName == null || questionName.length < 5) {
+                                    invalidMessage = "Invalid question composition contained"
+                                    return@forEach
+                                } else if (questionType == 4) {
+                                    val characterLimit = (questionJson["characterLimit"] as? Long)?.toInt()?.let { if (it <= 0) null else it }
+                                    questions.add(TextQuestion(questionName, required, characterLimit))
+                                } else if (questionType == 5) {
+                                    val minimumNumber = questionJson["minimumNumber"]?.let { it as? Long }?.toDouble()
+                                    val maximumNumber = questionJson["maximumNumber"]?.let { it as?Long }?.toDouble()
+                                    if (maximumNumber != null && minimumNumber != null && maximumNumber < minimumNumber) {
+                                        invalidMessage = "Minimum number greater than maximum number"
+                                    } else questions.add(NumberQuestion(questionName, required, minimumNumber, maximumNumber))
+                                } else {
+                                    val options = (questionJson["options"] as? JSONArray)?.mapNotNull { it as? String }?.toMutableList()
+                                    if (options == null || options.size == 1) invalidMessage = "An option-based question has 1 or less set options. This is not allowed"
+                                    else questions.add(when (questionType) {
+                                        1 -> MultipleChoiceQuestion(questionName, required, options)
+                                        2 -> CheckboxQuestion(questionName, required, options)
+                                        3 -> DropboxQuestion(questionName, required, options)
+                                        else -> throw IllegalArgumentException("= 1,2,3 must yield 1, 2, or 3. You broke math")
+                                    })
+                                }
+                            }
+
+                            println("$formId\n$formName\n$allowMultipleSubmissions\n$category\n" +
+                                    "$anyoneSubmit\n$studentSubmit\n$teacherSubmit\n$viewAnyone\n" +
+                                    "$viewStudents\n$viewTeachers\n$viewCounseling\n$endDate\n${gson.toJson(questions)}")
+                        }
+
                         // add and verify other variables. if everything looks good,
                         // redirect to /forms/manage/formId
                         // which does not exist lol
-                    } else status = StatusWithRedirect(400,null, "An unknown error occured")
-                    //gson.toJson(status)
+                        status = if (invalidMessage != null) StatusWithRedirect(400, null, invalidMessage)
+                        else StatusWithRedirect(200, "/")
+                    } else status = StatusWithRedirect(400, null, "An unknown error occured")
                 }
+                gson.toJson(status)
             }
         }
     }
