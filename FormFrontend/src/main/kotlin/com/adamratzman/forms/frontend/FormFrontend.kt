@@ -1,9 +1,9 @@
 package com.adamratzman.forms.frontend
 
 import com.adamratzman.forms.common.models.*
+import com.adamratzman.forms.common.utils.globalGson
 import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.Options
-import com.google.gson.Gson
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
@@ -21,7 +21,6 @@ fun main(args: Array<String>) {
 class FormFrontend {
     val databaseBase = "http://backend"
     val handlebars = HandlebarsTemplateEngine()
-    val gson = Gson()
 
     init {
         port(80)
@@ -57,10 +56,10 @@ class FormFrontend {
                 else {
                     val username = request.queryParams("username")
                     val password = request.queryParams("password")
-                    if (username == null || password == null) gson.toJson(LoginFailure(400,
+                    if (username == null || password == null) globalGson.toJson(LoginFailure(400,
                             "An invalid username or password was specified", 0))
                     val responseText = Jsoup.connect("$databaseBase/login/$username/$password").get().body().text()
-                    val successfulResponse: LoginSuccess? = gson.fromJson(responseText, LoginSuccess::class.java)
+                    val successfulResponse: LoginSuccess? = globalGson.fromJson(responseText, LoginSuccess::class.java)
                     if (successfulResponse != null) {
                         request.session().attribute("user", successfulResponse.user)
                     }
@@ -77,7 +76,7 @@ class FormFrontend {
                         request.listOfCreationParams().joinToString("&") {
                             "${it.first}=${encode(it.second?.toString() ?: "no")}"
                         }
-                gson.toJson(StatusWithRedirect(200, redirect))
+                globalGson.toJson(StatusWithRedirect(200, redirect))
             }
 
             get("/create") { request, response ->
@@ -98,7 +97,7 @@ class FormFrontend {
                 }
             }
 
-            post("/create") { request, response ->
+            post("/create") { request, _ ->
                 println(request.body())
                 val status: StatusWithRedirect
                 val map = getMap(request, "Form Creation")
@@ -108,7 +107,7 @@ class FormFrontend {
                     if (jsonObject != null) {
                         var invalidMessage: String? = null
 
-                        val formId = (jsonObject["formId"] as? String)?.let { if (it.isBlank()) null else it }
+                        var formId = (jsonObject["formId"] as? String)?.let { if (it.isBlank()) null else it }
                         val formName = jsonObject["formName"] as? String
 
                         val allowMultipleSubmissions = (jsonObject["allowMultipleSubmissions"] as? String) == "on"
@@ -119,29 +118,36 @@ class FormFrontend {
                         val studentSubmit = jsonObject["studentSubmit"] as? Boolean ?: false
                         val teacherSubmit = jsonObject["teacherSubmit"] as? Boolean ?: false
 
+                        val submitRoles = listOf(null to anyoneSubmit, Role.STUDENT to studentSubmit,
+                                Role.TEACHER to teacherSubmit).filter { it.second }.map { it.first }
 
-                        val viewAnyone: Boolean?
-                        val viewStudents: Boolean?
-                        val viewTeachers: Boolean?
-                        val viewCounseling: Boolean?
+                        val viewAnyone: Boolean
+                        val viewStudents: Boolean
+                        val viewTeachers: Boolean
+                        val viewCounseling: Boolean
 
                         if ((map["user"] as User).role != Role.STUDENT) {
-                            viewAnyone = jsonObject["viewAnyone"] as? Boolean
-                            viewStudents = jsonObject["viewStudents"]as? Boolean
-                            viewTeachers = jsonObject["viewTeachers"]  as? Boolean
-                            viewCounseling = jsonObject["viewCounseling"]as? Boolean
+                            viewAnyone = jsonObject["viewAnyone"] as? Boolean ?: false
+                            viewStudents = jsonObject["viewStudents"] as? Boolean ?: false
+                            viewTeachers = jsonObject["viewTeachers"] as? Boolean ?: false
+                            viewCounseling = jsonObject["viewCounseling"] as? Boolean ?: false
                         } else {
-                            viewAnyone = null
-                            viewStudents = null
-                            viewTeachers = null
-                            viewCounseling = null
+                            viewAnyone = false
+                            viewStudents = false
+                            viewTeachers = false
+                            viewCounseling = false
                         }
+
+                        val viewRoles = listOf(null to viewAnyone, Role.STUDENT to viewStudents,
+                                Role.TEACHER to viewTeachers, Role.COUNSELING to viewCounseling).filter { it.second }
+                                .map { it.first }
 
                         val endDate = (jsonObject["endDate"] as? Long)?.let {
                             if (it <= System.currentTimeMillis()) null else it
                         }
 
                         if (!anyoneSubmit && !studentSubmit && !teacherSubmit) invalidMessage = "A group must be able to submit this form"
+                        else if (formName == null) invalidMessage = "Form name was submitted as null"
                         else {
                             val questions = mutableListOf<FormQuestion>()
                             (jsonObject["questions"] as? JSONArray)?.forEach { questionJson ->
@@ -173,19 +179,27 @@ class FormFrontend {
                                 }
                             }
 
+                            if (formId != null) {
+                                // this is for form updating and will completed later
+                            } else {
+                                // form *creation*, no existing form id. one must be generated
+                                val form = Form(null, (map["user"] as User).username, formName, category, submitRoles, viewRoles, mutableListOf(),
+                                        mutableListOf(), allowMultipleSubmissions, System.currentTimeMillis(), endDate, true, questions)
+                                val creationStatus = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/create").requestBody(globalGson.toJson(form)).post().body().text()
+                                        , StatusWithRedirect::class.java)
+                                if (creationStatus.status == 200) formId = creationStatus.message
+                            }
+
                             println("$formId\n$formName\n$allowMultipleSubmissions\n$category\n" +
                                     "$anyoneSubmit\n$studentSubmit\n$teacherSubmit\n$viewAnyone\n" +
-                                    "$viewStudents\n$viewTeachers\n$viewCounseling\n$endDate\n${gson.toJson(questions)}")
+                                    "$viewStudents\n$viewTeachers\n$viewCounseling\n$endDate\n${globalGson.toJson(questions)}")
                         }
 
-                        // add and verify other variables. if everything looks good,
-                        // redirect to /forms/manage/formId
-                        // which does not exist lol
                         status = if (invalidMessage != null) StatusWithRedirect(400, null, invalidMessage)
-                        else StatusWithRedirect(200, "/")
+                        else StatusWithRedirect(200, "/forms/manage/$formId")
                     } else status = StatusWithRedirect(400, null, "An unknown error occured")
                 }
-                gson.toJson(status)
+                globalGson.toJson(status)
             }
         }
     }

@@ -47,7 +47,7 @@ function initializeQuestionCreation() {
     var questionDiv = $("#question-div");
     questionDiv.append("<div id='questions'></div>" +
         "<a id='new-question-button' href='#question-" + currId + "' uk-icon=\"icon: plus-circle; ratio: 3;\" onclick='onNewQuestionClick()' class=\"uk-align-right\"></a>")
-    var doneButton = $("<button class='uk-button uk-button-primary' form=''>Create your form</button>");
+    var doneButton = $("<button id='create-form-submit' class='uk-button uk-button-primary' form=''>Create your form</button>");
     doneButton.click(function () {
         verifyFormCompletion();
     });
@@ -169,6 +169,7 @@ function questionRemove(questionId) {
 }
 
 function verifyFormCompletion() {
+    $("#create-form-submit").prop("disabled", true);
     var formId = $("#form-id").val();
     var formName = $("#name");
     var allowMultipleSubmissions = $("#multiple-submissions");
@@ -291,14 +292,14 @@ function verifyFormCompletion() {
             'endDate': millis,
             'questions': questions
         };
-        console.log(submitObject);
-        console.log(JSON.stringify(submitObject))
         $.post("/forms/create", JSON.stringify(submitObject), function (data) {
-            console.log(data)
             if (data.status === 200 || data.status === 401) {
-               // window.location.replace(decodeURIComponent(data.redirect));
+                window.location.replace(decodeURIComponent(data.redirect));
             }
-            else UIkit.notification(data.message, 'danger');
+            else {
+                $("#create-form-submit").prop("disabled", false);
+                UIkit.notification(data.message, 'danger');
+            }
         }, "json")
-    }
+    } else $("#create-form-submit").prop("disabled", false);
 }
