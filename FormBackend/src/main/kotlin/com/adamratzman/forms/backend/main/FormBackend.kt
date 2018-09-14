@@ -104,7 +104,8 @@ class FormBackend {
             println(request.body())
             val form = globalGson.fromJson(request.body(), Form::class.java)
             if (form.id != null) {
-                // check if form creator is the same as posted form. if so, then update the form
+                r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
+                globalGson.toJson(StatusWithRedirect(200, null, form.id))
             } else {
                 form.id = getRandomFormId()
                 r.table("forms").insert(r.json(globalGson.toJson(form))).run<Any>(conn)
@@ -114,16 +115,24 @@ class FormBackend {
     }
 
     fun registerFormRetrievalEndpoints() {
-        path("/forms/available") {
-            get("/submit/:username") { request, _ ->
-                val username = request.params("username")
-                val role = getUser(username).user!!.role
-                val availableForms = getForms().filter { form ->
-                    (form.creator == username || form.allowedContributors.contains(username) ||
-                            form.submitRoles.contains(role)) &&
-                            (form.allowMultipleSubmissions || !getResponsesFor(form).map { it.submitter }.contains(username))
+        path("/forms") {
+            path("/available") {
+                get("/submit/:username") { request, _ ->
+                    val username = request.params("username")
+                    val role = getUser(username).user!!.role
+                    val availableForms = getForms().filter { form ->
+                        (form.creator == username || form.allowedContributors.contains(username) ||
+                                form.submitRoles.contains(role)) &&
+                                (form.allowMultipleSubmissions || !getResponsesFor(form).map { it.submitter }.contains(username))
+                    }
+                    globalGson.toJson(availableForms)
                 }
-                globalGson.toJson(availableForms)
+                get("/created-ids/:username") { request, _ ->
+                    globalGson.toJson(getForms().filter { it.creator == request.params(":username") }.map { it.id })
+                }
+            }
+            get("/get/:id") { request, _ ->
+                globalGson.toJson(asPojo(globalGson,r.table("forms").get(request.params(":id") ?: "-1").run(conn),Form::class.java))
             }
         }
     }

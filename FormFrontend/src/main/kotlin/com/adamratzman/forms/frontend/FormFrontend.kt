@@ -39,7 +39,7 @@ class FormFrontend {
             val map = getMap(request, "Home")
             when {
                 map["user"] != null -> response.redirect("/")
-                request.queryParams("redirect") == null -> response.redirect(getLoginRedirect("/?login=true"))
+                request.queryParams("redirect") == null -> response.redirect(getLoginRedirect(request, "/?login=true"))
                 else -> handlebars.render(ModelAndView(map, "login.hbs"))
             }
         }
@@ -81,11 +81,44 @@ class FormFrontend {
 
             get("/create") { request, response ->
                 val map = getMap(request, "Form Creation")
-                if (map["user"] == null) response.redirect(getLoginRedirect("/forms/create"))
+                if (map["user"] == null) response.redirect(getLoginRedirect(request, "/forms/create"))
                 else {
-                    request.listOfCreationParams().forEach { map[it.first] = it.second }
+                    if (request.queryParams("existing") != null) {
+                        val existingId = request.queryParams("existing")
+                        val userCreatedIds = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/available/created-ids/${(map["user"] as User).username}").get().body().text(),
+                                Array<String>::class.java)
+                        if (userCreatedIds.contains(existingId)) {
+                            val form = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/get/$existingId").get().body().text(), Form::class.java)
+                            println(Jsoup.connect("$databaseBase/forms/get/$existingId").get().body().text())
+                            println(globalGson.toJson(form))
+                            map.putAll(
+                                    mapOf("formId" to form.id,
+                                            "fn" to form.name,
+                                            "ams" to form.allowMultipleSubmissions,
+                                            "sa" to form.submitRoles.contains(null),
+                                            "ss" to form.submitRoles.contains(Role.STUDENT),
+                                            "st" to form.submitRoles.contains(Role.TEACHER),
+                                            "ed" to form.expireDate,
+                                            "va" to form.viewResultRoles.contains(null),
+                                            "vs" to form.viewResultRoles.contains(Role.STUDENT),
+                                            "vt" to form.viewResultRoles.contains(Role.TEACHER),
+                                            "vc" to form.viewResultRoles.contains(Role.COUNSELING),
+                                            "questions" to form.formQuestions.map {
+                                                globalGson.toJson(when (it) {
+                                                    is MultipleChoiceQuestion -> 1
+                                                    is CheckboxQuestion -> 2
+                                                    is DropboxQuestion -> 3
+                                                    is TextQuestion -> 4
+                                                    is NumberQuestion -> 5
+                                                    else -> throw IllegalArgumentException("${it.type} isn't in 1-5")
+                                                } to it)
+                                            })
+                            )
+                        }
+                    }
 
                     map["datePicker"] = true
+
                     val availableCategories = mutableListOf(FormCategory.PERSONAL)
                     val role = map["role"] as Role
                     if (role == Role.ATHLETICS || role == Role.ADMIN) availableCategories.add(FormCategory.ATHLETICS)
@@ -101,7 +134,7 @@ class FormFrontend {
                 println(request.body())
                 val status: StatusWithRedirect
                 val map = getMap(request, "Form Creation")
-                if (map["user"] == null) status = StatusWithRedirect(401, getLoginRedirect("/forms/create"))
+                if (map["user"] == null) status = StatusWithRedirect(401, getLoginRedirect(request, "/forms/create"))
                 else {
                     val jsonObject = JSONParser().parse(request.body()) as? JSONObject
                     if (jsonObject != null) {
@@ -159,8 +192,8 @@ class FormFrontend {
                                     invalidMessage = "Invalid question composition contained"
                                     return@forEach
                                 } else if (questionType == 4) {
-                                    val characterLimit = (questionJson["characterLimit"] as? Long)?.toInt()?.let { if (it <= 0) null else it }
-                                    questions.add(TextQuestion(questionName, required, characterLimit))
+                                    val wordLimit = (questionJson["wordLimit"] as? Long)?.toInt()?.let { if (it <= 0) null else it }
+                                    questions.add(TextQuestion(questionName, required, wordLimit))
                                 } else if (questionType == 5) {
                                     val minimumNumber = questionJson["minimumNumber"]?.let { it as? Long }?.toDouble()
                                     val maximumNumber = questionJson["maximumNumber"]?.let { it as?Long }?.toDouble()
@@ -168,19 +201,28 @@ class FormFrontend {
                                         invalidMessage = "Minimum number greater than maximum number"
                                     } else questions.add(NumberQuestion(questionName, required, minimumNumber, maximumNumber))
                                 } else {
+                                    val includeOtherOption = questionJson["includeOtherOption"] as? Boolean ?: false
                                     val options = (questionJson["options"] as? JSONArray)?.mapNotNull { it as? String }?.toMutableList()
                                     if (options == null || options.size == 1) invalidMessage = "An option-based question has 1 or less set options. This is not allowed"
                                     else questions.add(when (questionType) {
-                                        1 -> MultipleChoiceQuestion(questionName, required, options)
-                                        2 -> CheckboxQuestion(questionName, required, options)
-                                        3 -> DropboxQuestion(questionName, required, options)
+                                        1 -> MultipleChoiceQuestion(questionName, required, includeOtherOption, options)
+                                        2 -> CheckboxQuestion(questionName, required, includeOtherOption, options)
+                                        3 -> DropboxQuestion(questionName, required, includeOtherOption, options)
                                         else -> throw IllegalArgumentException("= 1,2,3 must yield 1, 2, or 3. You broke math")
                                     })
                                 }
                             }
 
                             if (formId != null) {
-                                // this is for form updating and will completed later
+                                val allowed = globalGson.fromJson<List<String>>(Jsoup.connect("$databaseBase/forms/available/created-ids/${(map["user"] as User).username}")
+                                        .get().body().text(), List::class.java)
+                                if (allowed.contains(formId)) {
+                                    val form = Form(formId, (map["user"] as User).username, formName, category, submitRoles, viewRoles, mutableListOf(),
+                                            mutableListOf(), allowMultipleSubmissions, System.currentTimeMillis(), endDate, true, questions)
+                                    val updateStatus = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/create").requestBody(globalGson.toJson(form)).post().body().text()
+                                            , StatusWithRedirect::class.java)
+                                    if (updateStatus.status == 200) formId = updateStatus.message
+                                } else invalidMessage = "You're not able to edit this form!"
                             } else {
                                 // form *creation*, no existing form id. one must be generated
                                 val form = Form(null, (map["user"] as User).username, formName, category, submitRoles, viewRoles, mutableListOf(),
@@ -229,7 +271,11 @@ class FormFrontend {
         return map
     }
 
-    private fun getLoginRedirect(url: String) = "/login?redirect=${encode(url)}"
+    private fun getLoginRedirect(request: Request, url: String) = "/login?redirect=" +
+            encode(url + request.queryMap().toMap().toList()
+                    .mapIndexed { i, pair -> (if (i == 0) "?" else "") + "${pair.first}=${pair.second.getOrNull(0)}" }
+                    .joinToString("&"))
+
     private fun encode(thing: String) = URLEncoder.encode(thing, "UTF-8")
 
     private fun registerHandlebarsHelpers() {

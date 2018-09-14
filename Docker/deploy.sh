@@ -16,5 +16,4 @@ do
     fi
 done
 
-docker-compose build
 docker-compose up -d

@@ -15,7 +15,7 @@ val formAdapter = RuntimeTypeAdapterFactory
         .registerSubtype(TextQuestion::class.java)
         .registerSubtype(NumberQuestion::class.java)
 
-val globalGson = GsonBuilder().setPrettyPrinting().registerTypeAdapterFactory(formAdapter).create()
+val globalGson = GsonBuilder().serializeNulls().registerTypeAdapterFactory(formAdapter).create()
 
 fun <T> asPojo(gson: Gson, map: HashMap<*, *>?, tClass: Class<T>): T? {
     return gson.fromJson(JSONObject.toJSONString(map), tClass)

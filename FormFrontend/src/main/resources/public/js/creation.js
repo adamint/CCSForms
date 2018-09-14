@@ -44,10 +44,12 @@ function createFormInitialValidation() {
 function initializeQuestionCreation() {
     $("#initial-creation-form").attr("style", "width: 55%");
     $("#continue-to-questions").remove();
+    var submitName = undefined;
+    if ($("#form-id").val().length > 0) submitName = "Submit edits"; else submitName = "Create your form";
     var questionDiv = $("#question-div");
     questionDiv.append("<div id='questions'></div>" +
         "<a id='new-question-button' href='#question-" + currId + "' uk-icon=\"icon: plus-circle; ratio: 3;\" onclick='onNewQuestionClick()' class=\"uk-align-right\"></a>")
-    var doneButton = $("<button id='create-form-submit' class='uk-button uk-button-primary' form=''>Create your form</button>");
+    var doneButton = $("<button id='create-form-submit' class='uk-button uk-button-primary' form=''>" + submitName + "</button>");
     doneButton.click(function () {
         verifyFormCompletion();
     });
@@ -102,7 +104,7 @@ function appendQuestionCreation(questionDiv) {
     content.empty();
 
     if (type.readable === textType.readable) {
-        content.append("<p>Character limit: " +
+        content.append("<p>Word limit: " +
             "<input class='uk-input ccs-char-limit' type='number'></p>");
         content.append("<p><i>Tip: keep this blank to have no limit</i></p>");
     } else if (type.readable === numType.readable) {
@@ -112,6 +114,7 @@ function appendQuestionCreation(questionDiv) {
             "<input class='uk-input ccs-max-num' type='number'></p>");
         content.append("<p><i>Tip: keep these blank to have no number restrictions</i></p>");
     } else {
+        content.append("<p>Include 'other' option: <input type='checkbox' class='uk-checkbox'></p>");
         content.append("<table class=\"uk-table uk-table-hover uk-table-divider\">" +
             "<thead><tr>" +
             "<th>Name</th><th>Remove</th></tr></thead>" +
@@ -169,7 +172,8 @@ function questionRemove(questionId) {
 }
 
 function verifyFormCompletion() {
-    $("#create-form-submit").prop("disabled", true);
+    var createFormSubmitButton = $("#create-form-submit");
+    createFormSubmitButton.prop("disabled", true);
     var formId = $("#form-id").val();
     var formName = $("#name");
     var allowMultipleSubmissions = $("#multiple-submissions");
@@ -218,6 +222,7 @@ function verifyFormCompletion() {
         } else question.removeClass("uk-form-danger");
 
         if (typeInt < 4) {
+            var includeOtherOption = $(this).find("input.uk-checkbox:eq(1)").prop("checked");
             var options = [];
             $(this).find("tbody").first().children().each(function (index) {
                 options.push($(this).children().first().text());
@@ -230,24 +235,25 @@ function verifyFormCompletion() {
                     'type': typeInt,
                     'question': questionName,
                     'required': required,
+                    'includeOtherOption': includeOtherOption,
                     'options': options
                 })
             }
         }
         else if (typeInt === 4) {
-            var characterLimit = $(this).find("input.ccs-char-limit").first();
-            var characterLimitValue = parseInt(characterLimit.val());
-            if (characterLimitValue !== undefined && characterLimitValue === 0) {
-                characterLimit.addClass("uk-form-danger");
-                UIkit.notification("Question " + (index + 1) + " character limit can't be empty!", 'danger');
+            var wordLimit = $(this).find("input.ccs-char-limit").first();
+            var wordLimitValue = parseInt(wordLimit.val());
+            if (wordLimitValue !== undefined && wordLimitValue <= 0) {
+                wordLimit.addClass("uk-form-danger");
+                UIkit.notification("Question " + (index + 1) + " word limit can't be less than or equal to 0!", 'danger');
                 submit = false
             } else {
-                characterLimit.removeClass("uk-form-danger");
+                wordLimit.removeClass("uk-form-danger");
                 questions.push({
                     'type': typeInt,
                     'question': questionName,
                     'required': required,
-                    'characterLimit': characterLimitValue
+                    'wordLimit': wordLimitValue
                 })
             }
         }
@@ -297,9 +303,41 @@ function verifyFormCompletion() {
                 window.location.replace(decodeURIComponent(data.redirect));
             }
             else {
-                $("#create-form-submit").prop("disabled", false);
+                createFormSubmitButton.prop("disabled", false);
                 UIkit.notification(data.message, 'danger');
             }
         }, "json")
-    } else $("#create-form-submit").prop("disabled", false);
+    } else createFormSubmitButton.prop("disabled", false);
+}
+
+function initializeEditing(json) {
+    $("#continue-to-questions").click();
+    var newQuestionButton = $("#new-question-button");
+    for (var x in json) {
+        var questionPair = json[x];
+        if (questionPair.hasOwnProperty("first") && questionPair.hasOwnProperty("second")) {
+            newQuestionButton.click();
+            console.log(questionPair);
+            var question = questionPair.second;
+            var questionDiv = $("#questions").children().last();
+            var questionTypeSelect = questionDiv.children().find("select").first();
+            questionTypeSelect.prop("value", questionPair.first);
+            questionTypeSelect.trigger("change");
+            questionDiv.find("textarea").val(question.question);
+            questionDiv.find("input:eq(0)").prop("checked", question.required);
+            if (questionPair === 4) {
+                questionDiv.find("input.ccs-char-limit").val(question.wordLimit);
+            }
+            else if (questionPair === 5) {
+                questionDiv.find("input.ccs-min-num").val(question.minimumNumber);
+                questionDiv.find("input.ccs-max-num").val(question.maximumNumber);
+            }
+            else {
+                for (var option in question.options) {
+                    questionDiv.find("input").last().val(question.options[option]);
+                    questionDiv.find(".uk-button-primary").click();
+                }
+            }
+        }
+    }
 }

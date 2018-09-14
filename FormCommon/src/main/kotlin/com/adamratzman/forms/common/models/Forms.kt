@@ -10,18 +10,18 @@ data class FormResponse(val id: String, val submitter: String, val formId: Strin
 data class FormQuestionAnswer(val position: Int, val response: String)
 
 abstract class FormQuestion(val question: String, val required: Boolean, @Transient val type: QuestionType)
-abstract class OptionsFormQuestion(question: String, required: Boolean, type: QuestionType, val options: MutableList<String>) : FormQuestion(question, required, type)
+abstract class OptionsFormQuestion(question: String, required: Boolean, type: QuestionType, val includeOtherOption: Boolean, val options: MutableList<String>) : FormQuestion(question, required, type)
 
-class MultipleChoiceQuestion(question: String, required: Boolean, options: MutableList<String>)
-    : OptionsFormQuestion(question, required, QuestionType.MULTIPLE_CHOICE, options)
+class MultipleChoiceQuestion(question: String, required: Boolean, includeOtherOption: Boolean, options: MutableList<String>)
+    : OptionsFormQuestion(question, required, QuestionType.MULTIPLE_CHOICE, includeOtherOption, options)
 
-class CheckboxQuestion(question: String, required: Boolean, options: MutableList<String>)
-    : OptionsFormQuestion(question, required, QuestionType.CHECKBOX, options)
+class CheckboxQuestion(question: String, required: Boolean, includeOtherOption: Boolean, options: MutableList<String>)
+    : OptionsFormQuestion(question, required, QuestionType.CHECKBOX, includeOtherOption, options)
 
-class DropboxQuestion(question: String, required: Boolean, options: MutableList<String>)
-    : OptionsFormQuestion(question, required, QuestionType.DROPBOX, options)
+class DropboxQuestion(question: String, required: Boolean, includeOtherOption: Boolean, options: MutableList<String>)
+    : OptionsFormQuestion(question, required, QuestionType.DROPBOX, includeOtherOption, options)
 
-class TextQuestion(question: String, required: Boolean, val characterLimit: Int?) : FormQuestion(question, required, QuestionType.TEXT)
+class TextQuestion(question: String, required: Boolean, val wordLimit: Int?) : FormQuestion(question, required, QuestionType.TEXT)
 class NumberQuestion(question: String, required: Boolean, val minimumNumber: Double?, val maximumNumber: Double?) : FormQuestion(question, required, QuestionType.NUMBER)
 
 enum class QuestionType(val readable: String) {
