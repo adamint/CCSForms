@@ -131,8 +131,12 @@ class FormBackend {
                     globalGson.toJson(getForms().filter { it.creator == request.params(":username") }.map { it.id })
                 }
             }
+            get("/all/:id") { request, _ ->
+                globalGson.toJson(r.table("forms").getAll(request.params(":id")))
+            }
             get("/get/:id") { request, _ ->
-                globalGson.toJson(asPojo(globalGson,r.table("forms").get(request.params(":id") ?: "-1").run(conn),Form::class.java))
+                globalGson.toJson(asPojo(globalGson, r.table("forms").get(request.params(":id")
+                        ?: "-1").run(conn), Form::class.java))
             }
         }
     }

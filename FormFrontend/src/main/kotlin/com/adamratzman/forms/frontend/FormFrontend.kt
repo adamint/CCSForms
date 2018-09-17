@@ -71,12 +71,26 @@ class FormFrontend {
         }
 
         path("/forms") {
-            post("/initial-form-validation") { request, _ ->
-                val redirect = "/forms/create-questions?" +
-                        request.listOfCreationParams().joinToString("&") {
-                            "${it.first}=${encode(it.second?.toString() ?: "no")}"
+            path("/manage") {
+                get("") { request, response ->
+                    val map = getMap(request, "TEMP")
+                    val user = map["user"] as? User
+                }
+                path("/:id") {
+                    get("") { request, response ->
+                        val map = getMap(request, "TEMP")
+                        val user = map["user"] as? User
+                        val formId = request.params(":id")
+                        val form = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/get/$formId").get().body().text(), Form::class.java)
+                        if (user == null) response.redirect(getLoginRedirect(request, "/manage/$formId"))
+                        else if (form?.id == null || user.username != form.id) response.redirect("/")
+                        else {
+                            map["pageTitle"] = "Manage Form | \"${form.name}\""
+                            map["form"] = form
+                            handlebars.render(ModelAndView(map, "manage-home.hbs"))
                         }
-                globalGson.toJson(StatusWithRedirect(200, redirect))
+                    }
+                }
             }
 
             get("/create") { request, response ->
