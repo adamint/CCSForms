@@ -1,0 +1,19 @@
+{{> header.hbs }}
+
+{{#with form}}
+    <div class="uk-text-center">
+        <h2 class="uk-text-center uk-margin-large-bottom"><b>{{name}}</b></h2>
+        <h3 class="uk-margin-large-bottom"><a href="/forms/manage/responses/{{id}}">Manage</a> responses for this form ({{numResponses}})</h3>
+        <div class="uk-margin-auto uk-margin-medium-bottom uk-width-1-2 uk-card uk-card-default uk-card-large uk-card-body">
+            <h3 class="uk-card-title">Form is accessible by {{accessibleGroups}}</h3>
+            <p>Description: {{description}}</p>
+            <div class="uk-card-footer">
+                <a class="uk-button" href="/forms/create?existing={{id}}">Edit form</a>
+                <a class="uk-button" href="/forms/take/{{id}}">Go to the form</a>
+            </div>
+        </div>
+    </div>
+    <h3 class="uk-text-center"><a href="/forms/manage">Go back</a> to management home</h3>
+{{/with}}
+
+{{> footer.hbs }}

@@ -16,6 +16,8 @@ function createFormInitialValidation() {
     var submit = true;
 
     var formName = $("#name");
+    var description = $("#description");
+
     var anyoneSubmit = $("#submit-anyone");
     var studentSubmit = $("#submit-students");
     var teacherSubmit = $("#submit-teachers");
@@ -25,6 +27,12 @@ function createFormInitialValidation() {
         formName.addClass("uk-form-danger");
         UIkit.notification('The form name must be at least 4 characters', 'danger');
     } else formName.removeClass("uk-form-danger");
+
+    if (description.val().length < 4) {
+        submit = false;
+        description.addClass("uk-form-danger");
+        UIkit.notification('The form description must be at least 4 characters', 'danger');
+    } else description.removeClass("uk-form-danger");
 
     if (anyoneSubmit.prop('checked') === false &&
         studentSubmit.prop('checked') === false &&
@@ -176,6 +184,7 @@ function verifyFormCompletion() {
     createFormSubmitButton.prop("disabled", true);
     var formId = $("#form-id").val();
     var formName = $("#name");
+    var description = $("#description");
     var allowMultipleSubmissions = $("#multiple-submissions");
     var category = $("#category").val();
     var anyoneSubmit = $("#submit-anyone").prop("checked");
@@ -192,13 +201,22 @@ function verifyFormCompletion() {
     if (formName.val().length < 4) {
         formName.addClass("uk-form-danger");
         UIkit.notification('The form name must be at least 4 characters', 'danger');
+        createFormSubmitButton.prop("disabled", false);
         return
     } else formName.removeClass("uk-form-danger");
+
+    if (description.val().length < 4) {
+        description.addClass("uk-form-danger");
+        UIkit.notification('The form description must be at least 4 characters', 'danger');
+        createFormSubmitButton.prop("disabled", false);
+        return
+    } else description.removeClass("uk-form-danger");
 
     if (anyoneSubmit === false &&
         studentSubmit === false &&
         teacherSubmit === false) {
         UIkit.notification("You need to allow submissions from at least one group!", 'danger');
+        createFormSubmitButton.prop("disabled", false);
         return
     }
 
@@ -208,6 +226,7 @@ function verifyFormCompletion() {
     var children = $("#questions").children();
     if (children.length === 0) {
         UIkit.notification("You need at least one question!", 'danger');
+        createFormSubmitButton.prop("disabled", false);
         return
     }
     children.each(function (index) {
@@ -286,6 +305,7 @@ function verifyFormCompletion() {
         var submitObject = {
             'formId': formId,
             'formName': formName.val(),
+            'description': description.val(),
             'allowMultipleSubmissions': allowMultipleSubmissions.val(),
             'category': category,
             'anyoneSubmit': anyoneSubmit,

@@ -1,5 +1,25 @@
 {{> header.hbs }}
 
-<h2 class="uk-text-center">{{user.username}}, manage your created forms here!</h2>
+<h2 class="uk-text-center uk-margin-large-bottom"><b>{{user.username}}</b>, manage your created forms here!</h2>
+
+{{#if hasForms}}
+    <div class="uk-text-center">
+        {{#each forms}}
+            <div class="uk-margin-auto uk-margin-medium-bottom uk-width-1-2 uk-card uk-card-default uk-card-large uk-card-body">
+                <h3 class="uk-card-title">{{name}} by {{creator}}</h3>
+                <p>Description: {{description}}</p>
+
+                <div class="uk-card-footer">
+                    <a class="uk-button" href="/forms/manage/{{id}}">Manage</a>
+                    <a class="uk-button" href="/forms/take/{{id}}">Go to the form</a>
+                </div>
+            </div>
+        {{/each}}
+    </div>
+    <h3 class="uk-text-center">You can create new forms by clicking <a href="/forms/create">here</a></h3>
+{{else}}-
+    <h3 class="uk-text-center"><span style="color: red;">You don't have any forms.</span> Create one <a
+            href="/forms/create">here</a></h3>
+{{/if}}
 
 {{> footer.hbs }}

@@ -1,13 +1,13 @@
 package com.adamratzman.forms.common.models
 
-data class Form(var id: String?, val creator: String, val name: String, val category: FormCategory, val submitRoles: List<Role?>,
+data class Form(var id: String?, val creator: String, val name: String, val description: String, val category: FormCategory, val submitRoles: List<Role?>,
                 val viewResultRoles: List<Role?>, val viewResultUsers: MutableList<String> /* username */,
                 val allowedContributors: MutableList<String> /* for future use, e.g. a teacher's class or a grade */,
                 var allowMultipleSubmissions: Boolean, val creationDate: Long,
                 val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>)
 
 data class FormResponse(val id: String, val submitter: String, val formId: String, val formQuestionAnswers: MutableList<FormQuestionAnswer>)
-data class FormQuestionAnswer(val position: Int, val response: String)
+data class FormQuestionAnswer(val question: FormQuestion, val response: String)
 
 abstract class FormQuestion(val question: String, val required: Boolean, @Transient val type: QuestionType)
 abstract class OptionsFormQuestion(question: String, required: Boolean, type: QuestionType, val includeOtherOption: Boolean, val options: MutableList<String>) : FormQuestion(question, required, type)

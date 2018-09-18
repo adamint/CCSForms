@@ -58,7 +58,7 @@ class FormFrontend {
                     val password = request.queryParams("password")
                     if (username == null || password == null) globalGson.toJson(LoginFailure(400,
                             "An invalid username or password was specified", 0))
-                    val responseText = Jsoup.connect("$databaseBase/login/$username/$password").get().body().text()
+                    val responseText = getFromBackend("/login/$username/$password")
                     val successfulResponse: LoginSuccess? = globalGson.fromJson(responseText, LoginSuccess::class.java)
                     if (successfulResponse != null) {
                         request.session().attribute("user", successfulResponse.user)
@@ -75,19 +75,32 @@ class FormFrontend {
                 get("") { request, response ->
                     val map = getMap(request, "TEMP")
                     val user = map["user"] as? User
+                    if (user == null) response.redirect(getLoginRedirect(request, "/forms/manage"))
+                    else {
+                        map["pageTitle"] = "Manage Forms"
+                        println(getFromBackend("/forms/all/${user.username}"))
+                        val forms = globalGson.fromJson(getFromBackend("/forms/all/${user.username}"), Array<Form>::class.java)
+                        map["hasForms"] = forms.isNotEmpty()
+                        map["forms"] = forms
+                        map["isAdmin"] = user.role == Role.ADMIN
+                        handlebars.render(ModelAndView(map, "manage-home.hbs"))
+                    }
                 }
                 path("/:id") {
                     get("") { request, response ->
                         val map = getMap(request, "TEMP")
                         val user = map["user"] as? User
                         val formId = request.params(":id")
-                        val form = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/get/$formId").get().body().text(), Form::class.java)
+                        val form = globalGson.fromJson(getFromBackend("/forms/get/$formId"), Form::class.java)
                         if (user == null) response.redirect(getLoginRedirect(request, "/manage/$formId"))
-                        else if (form?.id == null || user.username != form.id) response.redirect("/")
+                        else if (form?.id == null || user.username != form.creator) response.redirect("/")
                         else {
                             map["pageTitle"] = "Manage Form | \"${form.name}\""
                             map["form"] = form
-                            handlebars.render(ModelAndView(map, "manage-home.hbs"))
+                            val responses = globalGson.fromJson(getFromBackend("/forms/responses/$formId"), Array<FormResponse>::class.java)
+                            map["numResponses"] = responses.size
+                            map["accessibleGroups"] = if (form.submitRoles.contains(null)) "anyone" else form.submitRoles.joinToString { it!!.readable.toLowerCase() }
+                            handlebars.render(ModelAndView(map, "manage-form.hbs"))
                         }
                     }
                 }
@@ -99,15 +112,14 @@ class FormFrontend {
                 else {
                     if (request.queryParams("existing") != null) {
                         val existingId = request.queryParams("existing")
-                        val userCreatedIds = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/available/created-ids/${(map["user"] as User).username}").get().body().text(),
+                        val userCreatedIds = globalGson.fromJson(getFromBackend("/forms/available/created-ids/${(map["user"] as User).username}"),
                                 Array<String>::class.java)
                         if (userCreatedIds.contains(existingId)) {
-                            val form = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/get/$existingId").get().body().text(), Form::class.java)
-                            println(Jsoup.connect("$databaseBase/forms/get/$existingId").get().body().text())
-                            println(globalGson.toJson(form))
+                            val form = globalGson.fromJson(getFromBackend("/forms/get/$existingId"), Form::class.java)
                             map.putAll(
                                     mapOf("formId" to form.id,
                                             "fn" to form.name,
+                                            "fd" to form.description,
                                             "ams" to form.allowMultipleSubmissions,
                                             "sa" to form.submitRoles.contains(null),
                                             "ss" to form.submitRoles.contains(Role.STUDENT),
@@ -156,6 +168,7 @@ class FormFrontend {
 
                         var formId = (jsonObject["formId"] as? String)?.let { if (it.isBlank()) null else it }
                         val formName = jsonObject["formName"] as? String
+                        val description = jsonObject["description"] as? String
 
                         val allowMultipleSubmissions = (jsonObject["allowMultipleSubmissions"] as? String) == "on"
                         val category = (jsonObject["category"] as? String)?.let { strCat -> FormCategory.values().find { strCat == it.readable } }
@@ -195,6 +208,7 @@ class FormFrontend {
 
                         if (!anyoneSubmit && !studentSubmit && !teacherSubmit) invalidMessage = "A group must be able to submit this form"
                         else if (formName == null) invalidMessage = "Form name was submitted as null"
+                        else if (description == null) invalidMessage = "Description cannot be null"
                         else {
                             val questions = mutableListOf<FormQuestion>()
                             (jsonObject["questions"] as? JSONArray)?.forEach { questionJson ->
@@ -228,10 +242,11 @@ class FormFrontend {
                             }
 
                             if (formId != null) {
-                                val allowed = globalGson.fromJson<List<String>>(Jsoup.connect("$databaseBase/forms/available/created-ids/${(map["user"] as User).username}")
-                                        .get().body().text(), List::class.java)
+                                val allowed = globalGson.fromJson<List<String>>(
+                                        getFromBackend("/forms/available/created-ids/${(map["user"] as User).username}"),
+                                        List::class.java)
                                 if (allowed.contains(formId)) {
-                                    val form = Form(formId, (map["user"] as User).username, formName, category, submitRoles, viewRoles, mutableListOf(),
+                                    val form = Form(formId, (map["user"] as User).username, formName, description,category, submitRoles, viewRoles, mutableListOf(),
                                             mutableListOf(), allowMultipleSubmissions, System.currentTimeMillis(), endDate, true, questions)
                                     val updateStatus = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/create").requestBody(globalGson.toJson(form)).post().body().text()
                                             , StatusWithRedirect::class.java)
@@ -239,7 +254,7 @@ class FormFrontend {
                                 } else invalidMessage = "You're not able to edit this form!"
                             } else {
                                 // form *creation*, no existing form id. one must be generated
-                                val form = Form(null, (map["user"] as User).username, formName, category, submitRoles, viewRoles, mutableListOf(),
+                                val form = Form(null, (map["user"] as User).username, formName, description,category, submitRoles, viewRoles, mutableListOf(),
                                         mutableListOf(), allowMultipleSubmissions, System.currentTimeMillis(), endDate, true, questions)
                                 val creationStatus = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/create").requestBody(globalGson.toJson(form)).post().body().text()
                                         , StatusWithRedirect::class.java)
@@ -301,5 +316,9 @@ class FormFrontend {
                 options.fn()
             } else options.inverse()
         }
+    }
+
+    private fun getFromBackend(path: String): String {
+        return Jsoup.connect("$databaseBase$path").get().body().text()
     }
 }

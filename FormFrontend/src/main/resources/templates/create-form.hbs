@@ -14,6 +14,14 @@
         </div>
 
         <div class="uk-margin uk-form-width-large">
+            <label class="uk-form-label" for="name">Description</label>
+            <div class="uk-form-controls">
+                <input class="uk-input" type="text" name="description" id="description" placeholder="Description"
+                    {{#if fd}}value="{{fd}}" {{fd}}{{/if}}>
+            </div>
+        </div>
+
+        <div class="uk-margin uk-form-width-large">
             <label class="uk-form-label" for="multiple-submissions">Allow multiple submissions?</label>
             <div class="uk-form-controls">
                 <select class="uk-select" id="multiple-submissions">

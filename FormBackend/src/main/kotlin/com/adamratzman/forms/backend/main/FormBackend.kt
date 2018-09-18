@@ -116,6 +116,12 @@ class FormBackend {
 
     fun registerFormRetrievalEndpoints() {
         path("/forms") {
+            path("/responses") {
+                get("/:id") { request, _ ->
+                    r.table("responses").getAll(request.params(":id")).optArg("index", "formId").run<Any>(conn)
+                            .queryAsArrayList(globalGson, FormResponse::class.java).filterNotNull().let { globalGson.toJson(it) }
+                }
+            }
             path("/available") {
                 get("/submit/:username") { request, _ ->
                     val username = request.params("username")
@@ -128,11 +134,15 @@ class FormBackend {
                     globalGson.toJson(availableForms)
                 }
                 get("/created-ids/:username") { request, _ ->
-                    globalGson.toJson(getForms().filter { it.creator == request.params(":username") }.map { it.id })
+                    globalGson.toJson(getForms().asSequence().filter { it.creator == request.params(":username") }.map { it.id }.toList())
                 }
             }
             get("/all/:id") { request, _ ->
-                globalGson.toJson(r.table("forms").getAll(request.params(":id")))
+                // in the future, this needs to include all forms a user has *access* to manage, not just ones created by them
+                r.table("forms").getAll(request.params(":id")).optArg("index", "creator").run<Any>(conn)
+                        .queryAsArrayList(globalGson,Form::class.java).let {
+                            globalGson.toJson(it)
+                        }
             }
             get("/get/:id") { request, _ ->
                 globalGson.toJson(asPojo(globalGson, r.table("forms").get(request.params(":id")
