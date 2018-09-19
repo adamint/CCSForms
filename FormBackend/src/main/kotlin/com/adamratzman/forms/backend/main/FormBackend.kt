@@ -33,6 +33,7 @@ class FormBackend {
         registerFormRetrievalEndpoints()
         registerFormCreationEndpoint()
         registerUtilsEndpoints()
+        registerFormDeletionEndpoint()
     }
 
     fun databaseSetup() {
@@ -96,6 +97,12 @@ class FormBackend {
 
         get("/user/:username") { request, _ ->
             globalGson.toJson(getUser(request.params("username")))
+        }
+    }
+
+    fun registerFormDeletionEndpoint() {
+        post("/forms/delete/:id") { request, _ ->
+            r.table("forms").get(request.params(":id")).delete().run(conn)
         }
     }
 

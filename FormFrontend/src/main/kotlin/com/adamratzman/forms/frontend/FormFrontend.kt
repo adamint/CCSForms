@@ -71,6 +71,27 @@ class FormFrontend {
         }
 
         path("/forms") {
+            path("/take") {
+                get("/:id") { request, response ->
+                    val formId = request.params(":id")
+                    val form = globalGson.fromJson(getFromBackend("/forms/get/$formId"), Form::class.java)
+                    val map = getMap(request, "Take | ${form?.name}")
+                    if (form == null) {
+                        map["pageTitle"] = "404"
+                        map["description"] = "No form with that id was found"
+                        map["notFound"] = true
+                        handlebars.render(ModelAndView(map, "error.hbs"))
+                    } else {
+                        val user = map["user"] as? User
+                        if (user == null && !form.submitRoles.contains(null)) response.redirect(getLoginRedirect(request, "/forms/take/$formId", "This form requires you to log in"))
+                        else if (user != null && !form.submitRoles.contains(user.role) && user.username != form.creator) {
+                            map["pageTitle"] = "Unauthorized"
+                            map["description"] = "You don't have permission to take this form. If you think this is in error, please contact ${form.creator}"
+                            handlebars.render(ModelAndView(map, "error.hbs"))
+                        } else "hi"
+                    }
+                }
+            }
             path("/manage") {
                 get("") { request, response ->
                     val map = getMap(request, "TEMP")
@@ -92,14 +113,14 @@ class FormFrontend {
                         val user = map["user"] as? User
                         val formId = request.params(":id")
                         val form = globalGson.fromJson(getFromBackend("/forms/get/$formId"), Form::class.java)
-                        if (user == null) response.redirect(getLoginRedirect(request, "/manage/$formId"))
+                        if (user == null) response.redirect(getLoginRedirect(request, "/forms/manage/$formId"))
                         else if (form?.id == null || user.username != form.creator) response.redirect("/")
                         else {
                             map["pageTitle"] = "Manage Form | \"${form.name}\""
                             map["form"] = form
                             val responses = globalGson.fromJson(getFromBackend("/forms/responses/$formId"), Array<FormResponse>::class.java)
                             map["numResponses"] = responses.size
-                            map["accessibleGroups"] = if (form.submitRoles.contains(null)) "anyone" else form.submitRoles.joinToString { it!!.readable.toLowerCase() }
+                            map["accessibleGroups"] = if (form.submitRoles.contains(null)) "anyone" else form.submitRoles.joinToString { it!!.readable.toLowerCase() + "s" }
                             handlebars.render(ModelAndView(map, "manage-form.hbs"))
                         }
                     }
@@ -154,6 +175,17 @@ class FormFrontend {
                     map["notStudent"] = role != Role.STUDENT
                     handlebars.render(ModelAndView(map, "create-form.hbs"))
                 }
+            }
+
+            post("/delete/:id") { request, _ ->
+                val id = request.params(":id")
+                val form = globalGson.fromJson(getFromBackend("/forms/get/$id"), Form::class.java)
+                val map = getMap(request, "TEMP")
+                val status = if (form != null && form.creator == (map["user"] as? User)?.username) {
+                    Jsoup.connect("$databaseBase/forms/delete/$id").post()
+                    StatusWithRedirect(200,null)
+                } else StatusWithRedirect(401,getLoginRedirect(request, "/forms/manage/$id"), "You need to login as the creator of this form")
+                globalGson.toJson(status)
             }
 
             post("/create") { request, _ ->
@@ -246,7 +278,7 @@ class FormFrontend {
                                         getFromBackend("/forms/available/created-ids/${(map["user"] as User).username}"),
                                         List::class.java)
                                 if (allowed.contains(formId)) {
-                                    val form = Form(formId, (map["user"] as User).username, formName, description,category, submitRoles, viewRoles, mutableListOf(),
+                                    val form = Form(formId, (map["user"] as User).username, formName, description, category, submitRoles, viewRoles, mutableListOf(),
                                             mutableListOf(), allowMultipleSubmissions, System.currentTimeMillis(), endDate, true, questions)
                                     val updateStatus = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/create").requestBody(globalGson.toJson(form)).post().body().text()
                                             , StatusWithRedirect::class.java)
@@ -254,7 +286,7 @@ class FormFrontend {
                                 } else invalidMessage = "You're not able to edit this form!"
                             } else {
                                 // form *creation*, no existing form id. one must be generated
-                                val form = Form(null, (map["user"] as User).username, formName, description,category, submitRoles, viewRoles, mutableListOf(),
+                                val form = Form(null, (map["user"] as User).username, formName, description, category, submitRoles, viewRoles, mutableListOf(),
                                         mutableListOf(), allowMultipleSubmissions, System.currentTimeMillis(), endDate, true, questions)
                                 val creationStatus = globalGson.fromJson(Jsoup.connect("$databaseBase/forms/create").requestBody(globalGson.toJson(form)).post().body().text()
                                         , StatusWithRedirect::class.java)
@@ -300,10 +332,10 @@ class FormFrontend {
         return map
     }
 
-    private fun getLoginRedirect(request: Request, url: String) = "/login?redirect=" +
+    private fun getLoginRedirect(request: Request, url: String, message: String? = null) = "/login?redirect=" +
             encode(url + request.queryMap().toMap().toList()
                     .mapIndexed { i, pair -> (if (i == 0) "?" else "") + "${pair.first}=${pair.second.getOrNull(0)}" }
-                    .joinToString("&"))
+                    .joinToString("&")) + (if (message != null) "&message=${encode(message)}" else "")
 
     private fun encode(thing: String) = URLEncoder.encode(thing, "UTF-8")
 

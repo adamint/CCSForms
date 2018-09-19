@@ -1,15 +1,36 @@
 {{> header.hbs }}
 
+<script type="text/javascript">
+    function deleteForm(id) {
+        if (id !== undefined) {
+            UIkit.notification(
+                    "Are you sure you want to delete this form?" +
+                    "<br><br>" +
+                    "<button class='uk-margin-auto uk-button uk-button-danger' type='button' onclick='submitDelete(\"" + id + "\")'>Delete form</button>")
+        }
+    }
+
+    function submitDelete(id) {
+        $.post("/forms/delete/" + id, function (data) {
+           if (data.status === 200) window.location.href = "/forms/manage?delete=true";
+            else window.location.href = data.redirect
+        }, "json")
+    }
+
+</script>
+
 {{#with form}}
     <div class="uk-text-center">
         <h2 class="uk-text-center uk-margin-large-bottom"><b>{{name}}</b></h2>
-        <h3 class="uk-margin-large-bottom"><a href="/forms/manage/responses/{{id}}">Manage</a> responses for this form ({{numResponses}})</h3>
-        <div class="uk-margin-auto uk-margin-medium-bottom uk-width-1-2 uk-card uk-card-default uk-card-large uk-card-body">
+        <h3 class="uk-margin-large-bottom"><a href="/forms/manage/responses/{{id}}">Manage</a> responses for this form
+            ({{numResponses}})</h3>
+        <div class="uk-margin-auto uk-margin-medium-bottom uk-width-2-3 uk-card uk-card-default uk-card-large uk-card-body">
             <h3 class="uk-card-title">Form is accessible by {{accessibleGroups}}</h3>
             <p>Description: {{description}}</p>
             <div class="uk-card-footer">
-                <a class="uk-button" href="/forms/create?existing={{id}}">Edit form</a>
-                <a class="uk-button" href="/forms/take/{{id}}">Go to the form</a>
+                <a class="uk-button uk-button-default" href="/forms/create?existing={{id}}">Edit form</a>
+                <a onclick="deleteForm('{{id}}')" class="uk-button uk-button-danger">Delete form</a>
+                <a class="uk-button uk-button-primary" href="/forms/take/{{id}}">Go to the form</a>
             </div>
         </div>
     </div>

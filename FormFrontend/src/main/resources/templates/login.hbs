@@ -1,7 +1,5 @@
 {{> header.hbs }}
 
-<script type="text/javascript">passwordKeypressEnter()</script>
-
 <h2 class="uk-text-center">Log in</h2>
 
 <div class="uk-flex uk-flex-center">
@@ -20,11 +18,18 @@
             </div>
         </div>
 
-            <div class="uk-margin">
-                <button id="login-button" class="uk-button uk-button-primary" onclick="validateLogin()" form="">Log in
-                </button>
-            </div>
+        <div class="uk-margin">
+            <button id="login-button" class="uk-button uk-button-primary" onclick="validateLogin()" form="">Log in
+            </button>
+        </div>
     </form>
 </div>
+
+<script type="text/javascript">passwordKeypressEnter()</script>
+
+<script type="text/javascript">
+    var message = params["message"];
+    if (message !== undefined) UIkit.notification(message, 'primary');
+</script>
 
 {{> footer.hbs }}
