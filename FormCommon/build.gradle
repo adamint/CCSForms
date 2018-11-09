@@ -3,7 +3,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm'
 }
 
-version 'unspecified'
+version '1.2.70'
 
 sourceCompatibility = 1.8
 

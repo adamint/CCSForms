@@ -103,7 +103,26 @@ class FormFrontend {
                             map["pageTitle"] = "Unauthorized"
                             map["description"] = "You don't have permission to take this form. If you think this is in error, please contact ${form.creator}"
                             handlebars.render(ModelAndView(map, "error.hbs"))
-                        } else "hi"
+                        } else if (!form.allowMultipleSubmissions && user != null && user.username != form.creator
+                                && getFromBackend("/forms/info/${form.id}/taken/${user.username}") == "true") {
+                            map["pageTitle"] = "You've already taken this form!"
+                            map["description"] = "You don't have permission to take it again. If you think this is in error, please contact ${form.creator}"
+                            handlebars.render(ModelAndView(map, "error.hbs"))
+                        } else {
+                            // render the form
+                            map["form"] = form
+                            map["questions"] = form.formQuestions.map {
+                                globalGson.toJson(when (it) {
+                                    is MultipleChoiceQuestion -> 1
+                                    is CheckboxQuestion -> 2
+                                    is DropboxQuestion -> 3
+                                    is TextQuestion -> 4
+                                    is NumberQuestion -> 5
+                                    else -> throw IllegalArgumentException("${it.type} isn't in 1-5")
+                                } to it)
+                            }
+                            handlebars.render(ModelAndView(map, "take-form.hbs"))
+                        }
                     }
                 }
             }
@@ -198,8 +217,8 @@ class FormFrontend {
                 val map = getMap(request, "TEMP")
                 val status = if (form != null && form.creator == (map["user"] as? User)?.username) {
                     Jsoup.connect("$databaseBase/forms/delete/$id").post()
-                    StatusWithRedirect(200,null)
-                } else StatusWithRedirect(401,getLoginRedirect(request, "/forms/manage/$id"), "You need to login as the creator of this form")
+                    StatusWithRedirect(200, null)
+                } else StatusWithRedirect(401, getLoginRedirect(request, "/forms/manage/$id"), "You need to login as the creator of this form")
                 globalGson.toJson(status)
             }
 
@@ -320,20 +339,6 @@ class FormFrontend {
                 globalGson.toJson(status)
             }
         }
-    }
-
-    private fun Request.listOfCreationParams(): List<Pair<String, Any?>> {
-        return listOf("fn" to queryParams("formName"),
-                "ams" to queryParams("allowMultipleSubmissions")?.equals("yes"),
-                "c" to queryParams("category"),
-                "sa" to queryParams("submitAnyone")?.equals("on"),
-                "ss" to queryParams("submitStudents")?.equals("on"),
-                "st" to queryParams("submitTeachers")?.equals("on"),
-                "va" to queryParams("viewAnyone")?.equals("on"),
-                "vs" to queryParams("viewStudents"),
-                "vt" to queryParams("viewTeachers"),
-                "vc" to queryParams("viewCounseling"),
-                "ed" to queryParams("endDate"))
     }
 
     private fun getMap(request: Request, pageTitle: String): HashMap<String, Any?> {

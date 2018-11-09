@@ -8,6 +8,7 @@ import com.rethinkdb.RethinkDB.r
 import com.rethinkdb.gen.exc.ReqlOpFailedError
 import com.rethinkdb.net.Connection
 import org.apache.commons.lang3.RandomStringUtils
+import org.jsoup.Jsoup
 import spark.Spark.*
 import java.util.concurrent.Executors
 
@@ -34,6 +35,7 @@ class FormBackend {
         registerFormCreationEndpoint()
         registerUtilsEndpoints()
         registerFormDeletionEndpoint()
+        registerFormSpecificEndpoints()
     }
 
     fun databaseSetup() {
@@ -100,6 +102,28 @@ class FormBackend {
         }
     }
 
+    fun registerFormSpecificEndpoints() {
+        path("/forms/info/:id") {
+            before("*") { request, response ->
+                if (asPojo(globalGson, r.table("forms").get(request.params(":id")
+                                ?: "-1").run(conn), Form::class.java) == null) response.status(404)
+                else response.status(200)
+            }
+            get("/taken/:username") { request, response ->
+                val id = request.params(":id")
+                val username = request.params(":username")
+                (globalGson.fromJson(Jsoup.connect("localhost/forms/info/$id/taken").get().body().text(), Array<FormResponse>::class.java)
+                        .find { it.submitter == username } == null).toString()
+            }
+            get("/taken") { request, _ ->
+                r.table("responses").getAll(request.params(":id")).optArg("index", "formId").run<Any>(conn)
+                        .queryAsArrayList(globalGson, FormResponse::class.java).filterNotNull().let {
+                            globalGson.toJson(it)
+                        }
+            }
+        }
+    }
+
     fun registerFormDeletionEndpoint() {
         post("/forms/delete/:id") { request, _ ->
             r.table("forms").get(request.params(":id")).delete().run(conn)
@@ -129,6 +153,7 @@ class FormBackend {
                             .queryAsArrayList(globalGson, FormResponse::class.java).filterNotNull().let { globalGson.toJson(it) }
                 }
             }
+
             path("/available") {
                 get("/submit/:username") { request, _ ->
                     val username = request.params("username")
@@ -140,17 +165,20 @@ class FormBackend {
                     }
                     globalGson.toJson(availableForms)
                 }
+
                 get("/created-ids/:username") { request, _ ->
                     globalGson.toJson(getForms().asSequence().filter { it.creator == request.params(":username") }.map { it.id }.toList())
                 }
             }
+
             get("/all/:id") { request, _ ->
                 // in the future, this needs to include all forms a user has *access* to manage, not just ones created by them
                 r.table("forms").getAll(request.params(":id")).optArg("index", "creator").run<Any>(conn)
-                        .queryAsArrayList(globalGson,Form::class.java).let {
+                        .queryAsArrayList(globalGson, Form::class.java).let {
                             globalGson.toJson(it)
                         }
             }
+
             get("/get/:id") { request, _ ->
                 globalGson.toJson(asPojo(globalGson, r.table("forms").get(request.params(":id")
                         ?: "-1").run(conn), Form::class.java))
