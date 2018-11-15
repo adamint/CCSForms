@@ -1,0 +1,13 @@
+{{> header.hbs }}
+
+<div class="uk-text-center">
+    <h2 class="uk-margin-small-bottom"><b>Form Submission Successful</b></h2>
+    <h3>You submitted the form: <i>{{form.name}}</i></h3>
+    <h4>{{#if allowMultipleSubmissions}}
+        You <u>can</u> resubmit this form by clicking <a href="/forms/take/{{form.id}}">here</a>.
+    {{else}}
+        You <u>cannot</u> resubmit this form!
+    {{/if}}</h4>
+</div>
+
+{{> footer.hbs }}

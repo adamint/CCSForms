@@ -15,7 +15,18 @@ val formAdapter = RuntimeTypeAdapterFactory
         .registerSubtype(TextQuestion::class.java)
         .registerSubtype(NumberQuestion::class.java)
 
-val globalGson = GsonBuilder().serializeNulls().registerTypeAdapterFactory(formAdapter).create()
+val questionResponseAdapter = RuntimeTypeAdapterFactory
+        .of(FormQuestionAnswer::class.java)
+        .registerSubtype(MultipleChoiceAnswer::class.java)
+        .registerSubtype(CheckboxAnswer::class.java)
+        .registerSubtype(DropboxAnswer::class.java)
+        .registerSubtype(NumberAnswer::class.java)
+        .registerSubtype(TextAnswer::class.java)
+
+val globalGson = GsonBuilder().serializeNulls()
+        .registerTypeAdapterFactory(formAdapter)
+        .registerTypeAdapterFactory(questionResponseAdapter)
+        .create()
 
 fun <T> asPojo(gson: Gson, map: HashMap<*, *>?, tClass: Class<T>): T? {
     return gson.fromJson(JSONObject.toJSONString(map), tClass)

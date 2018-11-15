@@ -8,7 +8,6 @@ import com.rethinkdb.RethinkDB.r
 import com.rethinkdb.gen.exc.ReqlOpFailedError
 import com.rethinkdb.net.Connection
 import org.apache.commons.lang3.RandomStringUtils
-import org.jsoup.Jsoup
 import spark.Spark.*
 import java.util.concurrent.Executors
 
@@ -33,6 +32,7 @@ class FormBackend {
         registerAuthenticationEndpoints()
         registerFormRetrievalEndpoints()
         registerFormCreationEndpoint()
+        registerFormSubmissionEndpoint()
         registerUtilsEndpoints()
         registerFormDeletionEndpoint()
         registerFormSpecificEndpoints()
@@ -104,24 +104,19 @@ class FormBackend {
 
     fun registerFormSpecificEndpoints() {
         path("/forms/info/:id") {
-            before("*") { request, response ->
-                if (asPojo(globalGson, r.table("forms").get(request.params(":id")
-                                ?: "-1").run(conn), Form::class.java) == null) response.status(404)
-                else response.status(200)
-            }
-            get("/taken/:username") { request, response ->
-                val id = request.params(":id")
+            get("/taken/:username") { request, _ ->
                 val username = request.params(":username")
-                (globalGson.fromJson(Jsoup.connect("localhost/forms/info/$id/taken").get().body().text(), Array<FormResponse>::class.java)
-                        .find { it.submitter == username } == null).toString()
+                (username != "null" && getResponses(request.params(":id")).find { it.submitter == username } != null).toString()
             }
             get("/taken") { request, _ ->
-                r.table("responses").getAll(request.params(":id")).optArg("index", "formId").run<Any>(conn)
-                        .queryAsArrayList(globalGson, FormResponse::class.java).filterNotNull().let {
-                            globalGson.toJson(it)
-                        }
+                globalGson.toJson(getResponses(request.params(":id")))
             }
         }
+    }
+
+    fun getResponses(formId: String): List<FormResponseDatabaseWrapper> {
+        return r.table("responses").getAll(formId).optArg("index", "formId").run<Any>(conn)
+                .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
     }
 
     fun registerFormDeletionEndpoint() {
@@ -132,7 +127,6 @@ class FormBackend {
 
     fun registerFormCreationEndpoint() {
         post("/forms/create") { request, _ ->
-            println(request.body())
             val form = globalGson.fromJson(request.body(), Form::class.java)
             if (form.id != null) {
                 r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
@@ -145,12 +139,21 @@ class FormBackend {
         }
     }
 
+    fun registerFormSubmissionEndpoint() {
+        post("/forms/submit") { request, _ ->
+            val submission = globalGson.fromJson(request.body(), FormResponseDatabaseWrapper::class.java)
+            if (submission?.response?.formId != null) {
+                r.table("responses").insert(r.json(globalGson.toJson(submission))).run<Any>(conn)
+            }
+        }
+    }
+
     fun registerFormRetrievalEndpoints() {
         path("/forms") {
             path("/responses") {
                 get("/:id") { request, _ ->
                     r.table("responses").getAll(request.params(":id")).optArg("index", "formId").run<Any>(conn)
-                            .queryAsArrayList(globalGson, FormResponse::class.java).filterNotNull().let { globalGson.toJson(it) }
+                            .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull().let { globalGson.toJson(it) }
                 }
             }
 
@@ -199,9 +202,9 @@ class FormBackend {
 
     fun getForms(): List<Form> = r.table("forms").run<Any>(conn).queryAsArrayList(globalGson, Form::class.java).filterNotNull()
 
-    fun getResponsesFor(form: Form): List<FormResponse> {
+    fun getResponsesFor(form: Form): List<FormResponseDatabaseWrapper> {
         return r.table("responses").getAll(form.id).optArg("index", "formId").run<Any>(conn)
-                .queryAsArrayList(globalGson, FormResponse::class.java).filterNotNull()
+                .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
     }
 
     fun getRandomFormId(): String {

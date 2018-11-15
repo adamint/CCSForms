@@ -5,12 +5,13 @@
         <h2 class="uk-margin-small-bottom"><b>{{name}}</b></h2>
         <h4 class="uk-margin-medium-bottom">{{description}}</h4>
         <div id="questions" class="uk-width-2-3 uk-text-left" style="margin-left: 25%"></div>
-        <button class="uk-button uk-button-primary" onclick="submit()">Submit</button>
+        <button class="uk-button uk-button-primary sbm" onclick="submit()">Submit</button>
     </div>
 {{/with}}
 
 <script type="text/javascript" src="/js/take.js"></script>
 <script type="text/javascript">
-    initializeQuestions({{& questions}})
+    initializeQuestions({{& questions}});
+    let formId = "{{form.id}}";
 </script>
 {{> footer.hbs }}

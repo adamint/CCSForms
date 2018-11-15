@@ -53,7 +53,8 @@ function initializeQuestionCreation() {
     $("#initial-creation-form").attr("style", "width: 55%");
     $("#continue-to-questions").remove();
     var submitName = undefined;
-    if ($("#form-id").val().length > 0) submitName = "Submit edits"; else submitName = "Create your form";
+    var multiple = $("#form-id").val().length > 0;
+    if (multiple) submitName = "Submit edits"; else submitName = "Create your form";
     var questionDiv = $("#question-div");
     questionDiv.append("<div id='questions'></div>" +
         "<a id='new-question-button' href='#question-" + currId + "' uk-icon=\"icon: plus-circle; ratio: 3;\" onclick='onNewQuestionClick()' class=\"uk-align-right\"></a>")
@@ -62,6 +63,9 @@ function initializeQuestionCreation() {
         verifyFormCompletion();
     });
     questionDiv.append(doneButton);
+    if (multiple) {
+        questionDiv.append($("<p>Editing a form with existing responses will <span style='color: red;'><u>delete</u></span> those responses.</p>"))
+    }
 }
 
 function onNewQuestionClick() {
@@ -120,6 +124,8 @@ function appendQuestionCreation(questionDiv) {
             "<input class='uk-input ccs-min-num' type='number'></p>");
         content.append("<p>Maximum number: " +
             "<input class='uk-input ccs-max-num' type='number'></p>");
+        content.append("<p>Only whole numbers: <input type='checkbox' class='uk-checkbox ccs-whole-num' checked></p>");
+
         content.append("<p><i>Tip: keep these blank to have no number restrictions</i></p>");
     } else {
         content.append("<p>Include 'other' option: <input type='checkbox' class='uk-checkbox'></p>");
@@ -281,6 +287,9 @@ function verifyFormCompletion() {
             var minimumNumberValue = parseInt(minimumNumber.val());
             var maximumNumber = $(this).find("input.ccs-max-num").first();
             var maximumNumberValue = parseInt(maximumNumber.val());
+            var wholeNumbers = $(this).find("input.ccs-whole-num").first();
+            var onlyWholeNumbers = wholeNumbers.prop("checked");
+
             if (minimumNumberValue !== undefined && maximumNumberValue !== undefined
                 && minimumNumberValue >= maximumNumberValue) {
                 minimumNumber.addClass("uk-form-danger");
@@ -295,7 +304,8 @@ function verifyFormCompletion() {
                     'question': questionName,
                     'required': required,
                     'minimumNumber': minimumNumberValue,
-                    'maximumNumber': maximumNumberValue
+                    'maximumNumber': maximumNumberValue,
+                    'onlyWholeNumbers': onlyWholeNumbers
                 })
             }
         }
@@ -345,12 +355,13 @@ function initializeEditing(json) {
             questionTypeSelect.trigger("change");
             questionDiv.find("textarea").val(question.question);
             questionDiv.find("input:eq(0)").prop("checked", question.required);
-            if (questionPair === 4) {
+            if (questionPair.first === 4) {
                 questionDiv.find("input.ccs-char-limit").val(question.wordLimit);
             }
-            else if (questionPair === 5) {
+            else if (questionPair.first === 5) {
                 questionDiv.find("input.ccs-min-num").val(question.minimumNumber);
                 questionDiv.find("input.ccs-max-num").val(question.maximumNumber);
+                questionDiv.find("input.ccs-whole-num").prop("checked", question.onlyWholeNumbers);
             }
             else {
                 for (var option in question.options) {
