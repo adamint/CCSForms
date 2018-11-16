@@ -11,8 +11,6 @@ import org.apache.commons.lang3.RandomStringUtils
 import spark.Spark.*
 import java.util.concurrent.Executors
 
-val executor = Executors.newScheduledThreadPool(1)
-
 fun main(args: Array<String>) {
     FormBackend()
 }
@@ -129,6 +127,7 @@ class FormBackend {
         post("/forms/create") { request, _ ->
             val form = globalGson.fromJson(request.body(), Form::class.java)
             if (form.id != null) {
+                r.table("responses").getAll(form.id).optArg("index", "formId").delete().runNoReply(conn)
                 r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
                 globalGson.toJson(StatusWithRedirect(200, null, form.id))
             } else {
