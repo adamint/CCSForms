@@ -9,7 +9,6 @@ import com.rethinkdb.gen.exc.ReqlOpFailedError
 import com.rethinkdb.net.Connection
 import org.apache.commons.lang3.RandomStringUtils
 import spark.Spark.*
-import java.util.concurrent.Executors
 
 fun main(args: Array<String>) {
     FormBackend()
@@ -127,9 +126,18 @@ class FormBackend {
         post("/forms/create") { request, _ ->
             val form = globalGson.fromJson(request.body(), Form::class.java)
             if (form.id != null) {
-                r.table("responses").getAll(form.id).optArg("index", "formId").delete().runNoReply(conn)
-                r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
-                globalGson.toJson(StatusWithRedirect(200, null, form.id))
+                val existing = getForms().find { it.id == form.id }
+                if (existing != null) {
+                    form.creationDate = existing.creationDate
+                    println("Form :" +form)
+                    println("Existing: " + existing)
+                    println(form.areQuestionsIdenticalTo(existing))
+                    if (!form.areQuestionsIdenticalTo(existing)) {
+                        r.table("responses").getAll(form.id).optArg("index", "formId").delete().runNoReply(conn)
+                        r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
+                    }
+                    globalGson.toJson(StatusWithRedirect(200, null, form.id))
+                } else globalGson.toJson(StatusWithRedirect(400, null, "bad id"))
             } else {
                 form.id = getRandomFormId()
                 r.table("forms").insert(r.json(globalGson.toJson(form))).run<Any>(conn)
@@ -170,6 +178,17 @@ class FormBackend {
 
                 get("/created-ids/:username") { request, _ ->
                     globalGson.toJson(getForms().asSequence().filter { it.creator == request.params(":username") }.map { it.id }.toList())
+                }
+
+                get("/open/:role/:user") { request, _ ->
+                    val role = Role.values().first { it.position == request.params(":role").toInt() }
+                    val username = request.params(":user")
+                    getForms().asSequence().filterNot { getUser(it.creator).user!!.role.position < 3 }.filter { form ->
+                        form.creator == username ||
+                                ((form.submitRoles.contains(null) || form.submitRoles.contains(role) || role == Role.ADMIN)
+                                        && (form.allowMultipleSubmissions ||
+                                        getResponsesFor(form).find { it.submitter == username } == null))
+                    }.toList().let { globalGson.toJson(it) }
                 }
             }
 

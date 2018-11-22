@@ -29,7 +29,17 @@ data class User(val username: String, val role: Role)
 enum class Role(val readable: String, val position: Int) {
     NOT_LOGGED_IN("Not Logged in", 0), STUDENT("Student", 1),
     TEACHER("Teacher", 2), COUNSELING("Counseling and Student Services", 3),
-    ATHLETICS("Athletics", 4), ADMIN("Admin", 5)
+    ATHLETICS("Athletics", 4), ADMIN("Admin", 5);
+
+    override fun toString() =
+        when (this) {
+            NOT_LOGGED_IN -> "those not logged in"
+            TEACHER -> "teachers"
+            STUDENT -> "students"
+            ATHLETICS -> "teachers"
+            ADMIN -> "administrators"
+            COUNSELING -> "counselors"
+        }
 }
 
 data class SparkUserResponse(val user: User?, val login: UserLogin?)

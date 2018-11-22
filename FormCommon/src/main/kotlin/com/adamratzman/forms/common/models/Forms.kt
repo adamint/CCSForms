@@ -3,10 +3,37 @@ package com.adamratzman.forms.common.models
 data class Form(var id: String?, val creator: String, val name: String, val description: String, val category: FormCategory, val submitRoles: List<Role?>,
                 val viewResultRoles: List<Role?>, val viewResultUsers: MutableList<String> /* username */,
                 val allowedContributors: MutableList<String> /* for future use, e.g. a teacher's class or a grade */,
-                var allowMultipleSubmissions: Boolean, val creationDate: Long,
-                val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>)
+                var allowMultipleSubmissions: Boolean, var creationDate: Long,
+                val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>) {
+    fun areQuestionsIdenticalTo(other: Form): Boolean {
+        return if (other.formQuestions.size != formQuestions.size) false
+        else other.formQuestions.filterNot { otherQuestion ->
+            val thisQuestion = formQuestions.find { it.question.equals(otherQuestion.question, true) }
+            if (thisQuestion == null || thisQuestion.required != otherQuestion.required) false
+            else when {
+                thisQuestion is TextQuestion && otherQuestion is TextQuestion -> {
+                    otherQuestion.wordLimit == thisQuestion.wordLimit
+                }
+                thisQuestion is NumberQuestion && otherQuestion is NumberQuestion -> {
+                    thisQuestion.maximumNumber == otherQuestion.maximumNumber && thisQuestion.minimumNumber == otherQuestion.minimumNumber
+                            && thisQuestion.onlyWholeNumbers == otherQuestion.onlyWholeNumbers
+                }
+                thisQuestion is DropboxQuestion && otherQuestion is DropboxQuestion -> {
+                    thisQuestion.options.map { it.toLowerCase() } == otherQuestion.options.map { it.toLowerCase() }
+                }
+                thisQuestion is CheckboxQuestion && otherQuestion is CheckboxQuestion -> {
+                    thisQuestion.options.map { it.toLowerCase() } == otherQuestion.options.map { it.toLowerCase() }
+                }
+                thisQuestion is MultipleChoiceQuestion && otherQuestion is MultipleChoiceQuestion -> {
+                    thisQuestion.options.map { it.toLowerCase() } == otherQuestion.options.map { it.toLowerCase() }
+                }
+                else -> false
+            }
+        }.isEmpty()
+    }
+}
 
-data class FormResponseDatabaseWrapper(val submitter: String?, val response: FormResponse, val formId:String, val time: Long = System.currentTimeMillis())
+data class FormResponseDatabaseWrapper(val submitter: String?, val response: FormResponse, val formId: String, val time: Long = System.currentTimeMillis())
 data class FormResponse(val formId: String, val formQuestionAnswers: List<FormQuestionAnswer>)
 open class FormQuestionAnswer(val questionName: String)
 class MultipleChoiceAnswer(questionName: String, val selected: String) : FormQuestionAnswer(questionName)

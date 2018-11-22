@@ -52,7 +52,7 @@ function initializeQuestions(questions) {
             else wordLimit = "None";
             let wordLimitP = $("<p class='uk-margin-small-top' style='font-size: 10px;'>Word limit: <span style='color:lightskyblue;'>0 / " + wordLimit + "</span></p>");
             if (wordLimit === "None" || question.wordLimit > 15) {
-                let textArea = $("<textarea class='uk-textarea uk-margin-remove-bottom txt' rows='4' placeholder='Enter response.. Bear the word limit in mind!'></textarea>");
+                let textArea = $("<textarea class='uk-textarea uk-margin-remove-bottom txt uk-width-4-5' rows='4' placeholder='Enter response.. Bear the word limit in mind!'></textarea>");
                 textArea.appendTo(questionContentDiv);
                 textArea.on("change keyup paste", function () {
                     let color = undefined;
@@ -63,7 +63,7 @@ function initializeQuestions(questions) {
                 });
             }
             else {
-                let inputText = $("<input type='text' class='uk-input txt' placeholder='Enter answer here..'>");
+                let inputText = $("<input type='text' class='uk-input txt uk-width-4-5' placeholder='Enter answer here..'>");
                 inputText.on("input", function () {
                     let color = undefined;
                     if (wordLimit === "None" || (wordLimit >= getLength($(this).val()))) color = "lightskyblue";

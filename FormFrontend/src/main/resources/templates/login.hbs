@@ -29,7 +29,7 @@
 
 <script type="text/javascript">
     var message = params["message"];
-    if (message !== undefined) UIkit.notification(message, 'primary');
+    if (message !== undefined) UIkit.notification(decodeURIComponent(message), 'primary');
 </script>
 
 {{> footer.hbs }}
