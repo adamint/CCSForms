@@ -5,7 +5,7 @@ data class Form(var id: String?, val creator: String, val name: String, val desc
                 val allowedContributors: MutableList<String> /* for future use, e.g. a teacher's class or a grade */,
                 var allowMultipleSubmissions: Boolean, var creationDate: Long,
                 val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>) {
-    fun areQuestionsIdenticalTo(other: Form): Boolean {
+    infix fun isIdenticalTo(other: Form): Boolean {
         return if (other.formQuestions.size != formQuestions.size) false
         else other.formQuestions.filterNot { otherQuestion ->
             val thisQuestion = formQuestions.find { it.question.equals(otherQuestion.question, true) }
@@ -33,8 +33,10 @@ data class Form(var id: String?, val creator: String, val name: String, val desc
     }
 }
 
-data class FormResponseDatabaseWrapper(val submitter: String?, val response: FormResponse, val formId: String, val time: Long = System.currentTimeMillis())
+data class FormResponseDatabaseWrapper(val submitter: String?, val response: FormResponse, val formId: String,
+                                       val time: Long = System.currentTimeMillis(), val id: String)
 data class FormResponse(val formId: String, val formQuestionAnswers: List<FormQuestionAnswer>)
+
 open class FormQuestionAnswer(val questionName: String)
 class MultipleChoiceAnswer(questionName: String, val selected: String) : FormQuestionAnswer(questionName)
 class CheckboxAnswer(questionName: String, val selected: List<String>) : FormQuestionAnswer(questionName)

@@ -7,6 +7,8 @@ import com.adamratzman.forms.common.utils.queryAsArrayList
 import com.rethinkdb.RethinkDB.r
 import com.rethinkdb.gen.exc.ReqlOpFailedError
 import com.rethinkdb.net.Connection
+import net.sargue.mailgun.Configuration
+import net.sargue.mailgun.Mail
 import org.apache.commons.lang3.RandomStringUtils
 import spark.Spark.*
 
@@ -17,6 +19,7 @@ fun main(args: Array<String>) {
 class FormBackend {
     lateinit var conn: Connection
     lateinit var loginUtils: LoginUtils
+    lateinit var mailgunConfig: Configuration
 
     init {
         databaseSetup()
@@ -32,7 +35,11 @@ class FormBackend {
         registerFormSubmissionEndpoint()
         registerUtilsEndpoints()
         registerFormDeletionEndpoint()
+        registerFormResponseDeletionEndpoint()
         registerFormSpecificEndpoints()
+        registerEmailEndpoints()
+
+        initiateMailgunConfig()
     }
 
     fun databaseSetup() {
@@ -70,6 +77,12 @@ class FormBackend {
                             r.tableCreate(table).run<Any>(conn)
                             r.table(table).indexCreate("creator").runNoReply(conn)
                         }
+                        "credentials" -> {
+                            r.tableCreate(table).run<Any>(conn)
+                        }
+                        "email-verification" -> {
+                            r.tableCreate(table).run<Any>(conn)
+                        }
                         else -> r.tableCreate(table).run<Any>(conn)
                     }
                 }
@@ -83,7 +96,13 @@ class FormBackend {
                 // Insert some test students as well
                 loginUtils.insertUser("student", "chsrocks", Role.STUDENT)
                 loginUtils.insertUser("student1", "password", Role.STUDENT)
+
+                // ...and some other roles too
+                loginUtils.insertUser("teacher", "teacher", Role.TEACHER)
+                loginUtils.insertUser("counselor", "counselor", Role.COUNSELING)
             }
+
+            expireOldVerificationRequests()
         } catch (e: ReqlOpFailedError) {
             databaseSetup()
         }
@@ -122,20 +141,23 @@ class FormBackend {
         }
     }
 
+    fun registerFormResponseDeletionEndpoint() {
+        post("/forms/response/delete/:id") { request, _ ->
+            r.table("responses").get(request.params(":id")).delete().run(conn)
+        }
+    }
+
     fun registerFormCreationEndpoint() {
         post("/forms/create") { request, _ ->
             val form = globalGson.fromJson(request.body(), Form::class.java)
             if (form.id != null) {
                 val existing = getForms().find { it.id == form.id }
-                if (existing != null) {
+                if (existing != null && existing.creator == form.creator) {
                     form.creationDate = existing.creationDate
-                    println("Form :" +form)
-                    println("Existing: " + existing)
-                    println(form.areQuestionsIdenticalTo(existing))
-                    if (!form.areQuestionsIdenticalTo(existing)) {
+                    if (!(form isIdenticalTo existing)) {
                         r.table("responses").getAll(form.id).optArg("index", "formId").delete().runNoReply(conn)
-                        r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
                     }
+                    r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).run<Any>(conn)
                     globalGson.toJson(StatusWithRedirect(200, null, form.id))
                 } else globalGson.toJson(StatusWithRedirect(400, null, "bad id"))
             } else {
@@ -162,6 +184,9 @@ class FormBackend {
                     r.table("responses").getAll(request.params(":id")).optArg("index", "formId").run<Any>(conn)
                             .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull().let { globalGson.toJson(it) }
                 }
+                get("") { _, _ ->
+                    r.table("responses").run<Any>(conn).queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).let { globalGson.toJson(it) }
+                }
             }
 
             path("/available") {
@@ -169,9 +194,8 @@ class FormBackend {
                     val username = request.params("username")
                     val role = getUser(username).user!!.role
                     val availableForms = getForms().filter { form ->
-                        (form.creator == username || form.allowedContributors.contains(username) ||
-                                form.submitRoles.contains(role)) &&
-                                (form.allowMultipleSubmissions || !getResponsesFor(form).map { it.submitter }.contains(username))
+                        (form.allowMultipleSubmissions || !getResponsesFor(form).asSequence().map { it.submitter }.contains(username) &&
+                                (form.creator == username || form.allowedContributors.contains(username) || form.submitRoles.contains(role)))
                     }
                     globalGson.toJson(availableForms)
                 }
@@ -183,21 +207,17 @@ class FormBackend {
                 get("/open/:role/:user") { request, _ ->
                     val role = Role.values().first { it.position == request.params(":role").toInt() }
                     val username = request.params(":user")
-                    getForms().asSequence().filterNot { getUser(it.creator).user!!.role.position < 3 }.filter { form ->
-                        form.creator == username ||
-                                ((form.submitRoles.contains(null) || form.submitRoles.contains(role) || role == Role.ADMIN)
-                                        && (form.allowMultipleSubmissions ||
-                                        getResponsesFor(form).find { it.submitter == username } == null))
+                    getForms().asSequence().filterNot { getUser(it.creator).user!!.role == Role.ADMIN }.filter { form ->
+                        form.creator == username || (form.submitRoles.contains(null) || form.submitRoles.contains(role) || role == Role.ADMIN)
                     }.toList().let { globalGson.toJson(it) }
                 }
             }
 
             get("/all/:id") { request, _ ->
-                // in the future, this needs to include all forms a user has *access* to manage, not just ones created by them
-                r.table("forms").getAll(request.params(":id")).optArg("index", "creator").run<Any>(conn)
-                        .queryAsArrayList(globalGson, Form::class.java).let {
-                            globalGson.toJson(it)
-                        }
+                val user = getUser(request.params(":id")).user!!
+                r.table("forms").run<Any>(conn).queryAsArrayList(globalGson, Form::class.java).filter { form ->
+                    form != null && (form.creator == user.username || user.role == Role.ADMIN || form.viewResultRoles.contains(user.role))
+                }.let { globalGson.toJson(it) }
             }
 
             get("/get/:id") { request, _ ->
@@ -210,7 +230,22 @@ class FormBackend {
     fun registerUtilsEndpoints() {
         path("/utils") {
             get("/random-form-id") { _, _ -> getRandomFormId() }
+            get("/generate-response-id") { _, _ -> getRandomResponseId() }
         }
+    }
+
+    fun registerEmailEndpoints() {
+        path("/mail") {
+            post("/send") { request, _ ->
+                val queuedMail = globalGson.fromJson(request.body(),QueuedMail::class.java)
+                sendEmail(queuedMail)
+            }
+
+        }
+    }
+
+    fun expireOldVerificationRequests() {
+        r.table("email-verification").filter { it.g("expiry").lt(System.currentTimeMillis()) }.delete().runNoReply(conn)
     }
 
     fun getUser(username: String): SparkUserResponse {
@@ -225,8 +260,33 @@ class FormBackend {
                 .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
     }
 
+    fun getResponses(): List<FormResponseDatabaseWrapper> {
+        return r.table("responses").run<Any>(conn).queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
+    }
+
     fun getRandomFormId(): String {
         val randomString = RandomStringUtils.randomAlphanumeric(6)
         return if (getForms().find { it.id == randomString } == null) randomString else getRandomFormId()
+    }
+
+    fun getRandomResponseId(): String {
+        val randomId = r.uuid().run<String>(conn)
+        return if (getResponses().find { it.id == randomId } == null) randomId else getRandomResponseId()
+    }
+
+    fun getCredential(id: String) = asPojo(globalGson, r.table("credentials").get(id).run(conn), Credential::class.java)!!.value
+
+    fun sendEmail(queuedMail: QueuedMail) = Mail.using(mailgunConfig)
+            .to(queuedMail.to)
+            .subject(queuedMail.subject)
+            .text(queuedMail.body)
+            .build()
+            .send()
+
+    fun initiateMailgunConfig() {
+        mailgunConfig = Configuration()
+                .domain("adamratzman.com")
+                .apiKey(getCredential("mailgun_key"))
+                .from("CHSForms (Carmel High School)", "chsforms.adamratzman.com")
     }
 }

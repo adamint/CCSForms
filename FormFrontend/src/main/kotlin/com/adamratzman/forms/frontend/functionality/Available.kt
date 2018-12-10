@@ -1,10 +1,12 @@
 package com.adamratzman.forms.frontend.functionality
 
 import com.adamratzman.forms.common.models.Form
+import com.adamratzman.forms.common.models.FormCategory
 import com.adamratzman.forms.common.models.Role
 import com.adamratzman.forms.common.models.User
 import com.adamratzman.forms.common.utils.globalGson
 import com.adamratzman.forms.frontend.FormFrontend
+import com.adamratzman.forms.frontend.utils.getUser
 import spark.ModelAndView
 import spark.Spark.get
 
@@ -16,7 +18,18 @@ fun FormFrontend.registerAvailableEndpoint() {
         val forms = getFromBackend("/forms/available/open/${role.position}/${user?.username ?: "null"}").let {
             globalGson.fromJson(it, Array<Form>::class.java)
         }
-        map["forms"] = forms
+        val counselingForms = forms.filter { it.category == FormCategory.COUNSELING }
+        val athleticsForms = forms.filter { getUser(it.creator)?.role == Role.ATHLETICS }
+        val genericSchoolForms = forms.filter { getUser(it.creator)?.role == Role.ADMIN }
+
+        val formMapping = mutableListOf<Pair<String, List<Form>>>()
+
+        if (counselingForms.isNotEmpty()) formMapping.add("Counseling Forms" to counselingForms)
+        if (athleticsForms.isNotEmpty()) formMapping.add("Athletics Forms" to athleticsForms)
+        if (genericSchoolForms.isNotEmpty()) formMapping.add("School Forms" to genericSchoolForms)
+
+        map["forms"] = formMapping
+        
         map["total"] = forms.size
         map["userString"] = role.toString()
         handlebars.render(ModelAndView(map, "available.hbs"))

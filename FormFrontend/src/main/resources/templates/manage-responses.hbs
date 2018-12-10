@@ -2,9 +2,19 @@
 
 <div class="uk-text-center">
     <h2 class="uk-margin-small-bottom"><b>Manage Responses - {{form.name}}</b></h2>
-    <h4>{{description}}</h4>
-    <p>In the meantime, here's a cute kitty to cheer you up</p>
-    <img src="/images/kitty.jpg">
+    <br />
+    <br />
+
+    <div id="response-cards"></div>
+
 </div>
+
+<script type="text/javascript" src="/js/manage-responses.js"></script>
+<script type="text/javascript">
+    let form = {{& formJson}};
+    $(document).ready(function () {
+        init({{&responses}});
+    });
+</script>
 
 {{> footer.hbs }}

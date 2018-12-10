@@ -1,21 +1,20 @@
 {{> header.hbs }}
 
-<h2 class="uk-text-center uk-margin-large-bottom">Available forms for <b>{{userString}}</b></h2>
+<h2 class="uk-text-center uk-margin-large-bottom">Available forms for <b>{{userString}}</b> ({{total}} total)</h2>
 <div class="uk-text-center">
     {{#each forms}}
-        <div class="uk-margin-auto uk-margin-medium-bottom uk-width-2-3 uk-card uk-card-default uk-card-large uk-card-body">
-            <h3 class="uk-card-title"><u>{{name}}</u></h3>
-            <p>{{description}}</p>
+        <h2 class="uk-margin-small-bottom">{{first}}</h2>
+        {{#each second}}
+            <div class="uk-margin-auto uk-margin-medium-bottom uk-width-2-3 uk-card uk-card-default uk-card-large uk-card-body">
+                <h3 class="uk-card-title"><u>{{name}}</u></h3>
+                <p>{{description}}</p>
 
-            <div class="uk-card-footer">
-                <a class="uk-button" href="/forms/take/{{id}}">Fill out the form</a>
+                <div class="uk-card-footer">
+                    <a class="uk-button" href="/forms/take/{{id}}">Fill out the form</a>
+                </div>
             </div>
-        </div>
+        {{/each}}
     {{/each}}
 </div>
-
-<script type="text/javascript">
-    if (params["delete"] !== undefined) UIkit.notification("Successfully deleted that form", 'primary');
-</script>
 
 {{> footer.hbs }}

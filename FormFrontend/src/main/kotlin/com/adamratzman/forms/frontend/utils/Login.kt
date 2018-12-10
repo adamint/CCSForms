@@ -10,7 +10,7 @@ import spark.Spark.post
 
 fun FormFrontend.registerLoginEndpoints() {
     get("/login") { request, response ->
-        val map = getMap(request, "Home")
+        val map = getMap(request, "Login")
         when {
             map["user"] != null -> response.redirect("/")
             request.queryParams("redirect") == null -> response.redirect(getLoginRedirect(request, "/?login=true"))
@@ -25,7 +25,7 @@ fun FormFrontend.registerLoginEndpoints() {
 
     post("/login") { request, response ->
         try {
-            val map = getMap(request, "Login")
+            val map = getMap(request, "POST")
             if (map["user"] != null) response.redirect("/")
             else {
                 val username = request.queryParams("username")

@@ -3,12 +3,13 @@ package com.adamratzman.forms.frontend.functionality
 import com.adamratzman.forms.common.models.*
 import com.adamratzman.forms.common.utils.globalGson
 import com.adamratzman.forms.frontend.FormFrontend
+import com.adamratzman.forms.frontend.toDate
+import com.adamratzman.forms.frontend.utils.getForm
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
 import org.jsoup.Jsoup
 import spark.ModelAndView
-import spark.Spark
 import spark.Spark.*
 
 fun FormFrontend.registerTakeEndpoints() {
@@ -16,7 +17,7 @@ fun FormFrontend.registerTakeEndpoints() {
         path("/take") {
             get("/:id") { request, response ->
                 val formId = request.params(":id")
-                val form = globalGson.fromJson(getFromBackend("/forms/get/$formId"), Form::class.java)
+                val form = getForm(formId)
                 val map = getMap(request, "Take | ${form?.name}")
                 if (form == null) {
                     map["pageTitle"] = "404"
@@ -34,6 +35,10 @@ fun FormFrontend.registerTakeEndpoints() {
                             && getFromBackend("/forms/info/${form.id}/taken/${user.username}") == "true") {
                         map["pageTitle"] = "You've already taken this form!"
                         map["description"] = "You don't have permission to take it again. If you think this is in error, please contact ${form.creator}"
+                        handlebars.render(ModelAndView(map, "error.hbs"))
+                    } else if (form.expireDate != null && form.expireDate!! < System.currentTimeMillis()) {
+                        map["pageTitle"] = "Form not available anymore"
+                        map["description"] = "This form isn't available to take anymore. It closed on ${form.expireDate!!.toDate()}"
                         handlebars.render(ModelAndView(map, "error.hbs"))
                     } else {
                         // render the form
@@ -55,29 +60,30 @@ fun FormFrontend.registerTakeEndpoints() {
         }
 
         post("/submit") { request, _ ->
+            println(request.body())
             val status: StatusWithRedirect
             val map = getMap(request, "Form Creation")
             val jsonObject = JSONParser().parse(request.body()) as? JSONObject
             if (jsonObject != null) {
                 var invalidMessage: String? = null
                 val form = (jsonObject["formId"] as? String)?.let { if (it.isBlank()) null else it }?.let {
-                    globalGson.fromJson(getFromBackend("/forms/get/$it"), Form::class.java)
+                    getForm(it)
                 }
-                val responses = (jsonObject["responses"] as? JSONArray)?.map { obj ->
+                val responses = (jsonObject["responses"] as? JSONArray)?.mapNotNull { obj ->
                     obj as JSONObject
                     val questionName = obj["questionName"] as? String
                     if (questionName == null) null
                     else {
                         when (form?.formQuestions?.find { it.question == questionName }) {
-                            is MultipleChoiceQuestion -> MultipleChoiceAnswer(questionName, obj["selected"] as String)
-                            is DropboxQuestion -> DropboxAnswer(questionName, obj["selected"] as String)
+                            is MultipleChoiceQuestion -> MultipleChoiceAnswer(questionName, (obj["selected"] as String).trim())
+                            is DropboxQuestion -> DropboxAnswer(questionName, (obj["selected"] as String).trim())
                             is NumberQuestion -> NumberAnswer(questionName, (obj["number"] as Number).toFloat())
-                            is TextQuestion -> TextAnswer(questionName, obj["text"] as String)
-                            is CheckboxQuestion -> CheckboxAnswer(questionName, (obj["selected"] as JSONArray).map { it as String })
+                            is TextQuestion -> TextAnswer(questionName, (obj["text"] as String).trim())
+                            is CheckboxQuestion -> CheckboxAnswer(questionName, (obj["selected"] as JSONArray).map { it as String }.map { it.trim() })
                             else -> null
                         }
                     }
-                }?.filterNotNull()
+                }
                 if (responses == null || form == null) invalidMessage = "Invalid parameters sent."
                 else {
                     val mappedQuestionResponses = form.formQuestions.map { question ->
@@ -99,10 +105,17 @@ fun FormFrontend.registerTakeEndpoints() {
                             answer?.let { _ ->
                                 when (answer) {
                                     is MultipleChoiceAnswer -> {
-                                        (question as MultipleChoiceQuestion).options.asSequence().map { it.trim() }.contains(answer.selected.trim())
+                                        val selected = answer.selected.trim()
+                                        question as MultipleChoiceQuestion
+                                        question.includeOtherOption || question.options.asSequence().map { it.trim() }.contains(selected)
                                     }
                                     is CheckboxAnswer -> {
-                                        (question as CheckboxQuestion).options.map { it.trim() }.containsAll(answer.selected.map { it.trim() })
+                                        val selected = answer.selected.map { it.trim() }
+                                        question as CheckboxQuestion
+                                        selected.filter { select ->
+                                            question.options.asSequence().map { it.trim().toLowerCase() }.contains(select.toLowerCase())
+                                                    || question.includeOtherOption
+                                        }.size == selected.size
                                     }
                                     is DropboxAnswer -> {
                                         (question as DropboxQuestion).options.asSequence().map { it.trim() }.contains(answer.selected.trim())
@@ -122,7 +135,7 @@ fun FormFrontend.registerTakeEndpoints() {
                                         } ?: true
                                     }
                                     else -> throw IllegalArgumentException()
-                                }
+                                }.let { if (!it) submit = false }
                             }
                         }
                     }
@@ -136,7 +149,11 @@ fun FormFrontend.registerTakeEndpoints() {
                         } else {
                             // CAN submit
                             Jsoup.connect("$databaseBase/forms/submit")
-                                    .requestBody(globalGson.toJson(FormResponseDatabaseWrapper(user?.username, FormResponse(form.id!!, responses.toList()), form.id!!)))
+                                    .requestBody(globalGson.toJson(
+                                            FormResponseDatabaseWrapper(
+                                                    user?.username, FormResponse(form.id!!, responses.toList()), form.id!!,
+                                                    id = getFromBackend("/utils/generate-response-id")
+                                            )))
                                     .post()
                         }
                     }

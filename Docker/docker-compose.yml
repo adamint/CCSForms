@@ -18,8 +18,8 @@ services:
     image: rethinkdb
     networks:
     - db
-    #volumes:
-    #  - rethinkdb:/data
+    volumes:
+      - rethinkdb:/data
     ports:
     - "8080:8080"
 

@@ -19,9 +19,6 @@ function validateLogin() {
 
         if (!error) {
             $.post("/login", {username: username.val(), password: password.val()}, function (data) {
-                console.log(data);
-                console.log(data.status);
-                console.log(data.status === 200);
                 if (data.status === 200) {
                     window.location.replace(decodeURIComponent(params.redirect))
                 } else {

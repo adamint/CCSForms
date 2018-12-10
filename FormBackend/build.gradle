@@ -15,6 +15,7 @@ dependencies {
     compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'
     compile group: 'com.google.guava', name: 'guava', version: '26.0-jre'
+    compile 'net.sargue:mailgun:1.9.0'
     compile "com.sparkjava:spark-core:2.7.2"
 }
 

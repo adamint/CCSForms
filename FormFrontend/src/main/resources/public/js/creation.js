@@ -128,7 +128,7 @@ function appendQuestionCreation(questionDiv) {
 
         content.append("<p><i>Tip: keep these blank to have no number restrictions</i></p>");
     } else {
-        content.append("<p>Include 'other' option: <input type='checkbox' class='uk-checkbox'></p>");
+        content.append("<p>Include 'other' option: <input type='checkbox' class='other-checkbox uk-checkbox'></p>");
         content.append("<table class=\"uk-table uk-table-hover uk-table-divider\">" +
             "<thead><tr>" +
             "<th>Name</th><th>Remove</th></tr></thead>" +
@@ -367,6 +367,9 @@ function initializeEditing(json) {
                 for (var option in question.options) {
                     questionDiv.find("input").last().val(question.options[option]);
                     questionDiv.find(".uk-button-primary").click();
+                }
+                if (question.includeOtherOption !== undefined) {
+                    questionDiv.find("input.other-checkbox").first().prop("checked", question.includeOtherOption)
                 }
             }
         }

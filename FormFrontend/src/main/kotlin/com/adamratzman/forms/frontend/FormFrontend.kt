@@ -16,6 +16,9 @@ import spark.Request
 import spark.Spark.*
 import spark.template.handlebars.HandlebarsTemplateEngine
 import java.net.URLEncoder
+import java.text.DateFormat
+import java.time.Instant
+import java.util.*
 
 fun main(args: Array<String>) {
     FormFrontend()
@@ -76,3 +79,5 @@ class FormFrontend {
         return Jsoup.connect("$databaseBase$path").get().body().text()
     }
 }
+
+fun Long.toDate() = DateFormat.getDateInstance().format(Date.from(Instant.ofEpochMilli(this)))

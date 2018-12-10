@@ -3,6 +3,8 @@ package com.adamratzman.forms.frontend.functionality
 import com.adamratzman.forms.common.models.*
 import com.adamratzman.forms.common.utils.globalGson
 import com.adamratzman.forms.frontend.FormFrontend
+import com.adamratzman.forms.frontend.utils.getForm
+import com.adamratzman.forms.frontend.utils.getFormWithManagementPermission
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
@@ -18,14 +20,13 @@ fun FormFrontend.registerCreationEndpoints() {
             else {
                 if (request.queryParams("existing") != null) {
                     val existingId = request.queryParams("existing")
-                    val userCreatedIds = globalGson.fromJson(getFromBackend("/forms/available/created-ids/${(map["user"] as User).username}"),
-                            Array<String>::class.java)
-                    if (userCreatedIds.contains(existingId)) {
-                        val form = globalGson.fromJson(getFromBackend("/forms/get/$existingId"), Form::class.java)
+                    if (getFormWithManagementPermission((map["user"] as User).username).find { it.id == existingId } != null) {
+                        val form = getForm(existingId)
                         map.putAll(
                                 mapOf("formId" to form.id,
                                         "fn" to form.name,
                                         "fd" to form.description,
+                                        "c" to form.category,
                                         "ams" to form.allowMultipleSubmissions,
                                         "sa" to form.submitRoles.contains(null),
                                         "ss" to form.submitRoles.contains(Role.STUDENT),
@@ -46,7 +47,7 @@ fun FormFrontend.registerCreationEndpoints() {
                                             } to it)
                                         })
                         )
-                    }
+                    } else response.redirect("/create")
                 }
 
                 map["datePicker"] = true
@@ -75,9 +76,10 @@ fun FormFrontend.registerCreationEndpoints() {
                     val formName = jsonObject["formName"] as? String
                     val description = jsonObject["description"] as? String
 
-                    val allowMultipleSubmissions = (jsonObject["allowMultipleSubmissions"] as? String) == "on"
-                    val category = (jsonObject["category"] as? String)?.let { strCat -> FormCategory.values().find { strCat == it.readable } }
-                            ?: FormCategory.PERSONAL
+                    val allowMultipleSubmissions = (jsonObject["allowMultipleSubmissions"] as? String) == "yes"
+                    val category = (jsonObject["category"] as? String)?.let { strCat ->
+                        FormCategory.values().find { strCat.equals(it.readable, true) }
+                    } ?: FormCategory.PERSONAL
 
                     val anyoneSubmit = jsonObject["anyoneSubmit"] as? Boolean ?: false
                     val studentSubmit = jsonObject["studentSubmit"] as? Boolean ?: false
