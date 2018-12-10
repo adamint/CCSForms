@@ -57,7 +57,8 @@ class FormBackend {
                 r.dbCreate("chs").run<Any>(conn)
             }
 
-            val tables = listOf("users", "login_attempts", "forms", "responses", "logins")
+            val tables = listOf("users", "login_attempts", "forms", "responses", "logins", "credentials",
+                    "email-verification")
 
             tables.forEach { table ->
                 if (!r.tableList().run<List<String>>(conn).contains(table)) {
@@ -76,12 +77,6 @@ class FormBackend {
                         "forms" -> {
                             r.tableCreate(table).run<Any>(conn)
                             r.table(table).indexCreate("creator").runNoReply(conn)
-                        }
-                        "credentials" -> {
-                            r.tableCreate(table).run<Any>(conn)
-                        }
-                        "email-verification" -> {
-                            r.tableCreate(table).run<Any>(conn)
                         }
                         else -> r.tableCreate(table).run<Any>(conn)
                     }

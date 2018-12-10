@@ -1,24 +1,28 @@
 package com.adamratzman.forms.frontend
 
-import com.adamratzman.forms.common.models.*
-import com.adamratzman.forms.common.utils.globalGson
+import com.adamratzman.forms.common.models.Role
+import com.adamratzman.forms.common.models.User
 import com.adamratzman.forms.frontend.functionality.*
+import com.adamratzman.forms.frontend.utils.getUser
 import com.adamratzman.forms.frontend.utils.registerErrorEndpoints
 import com.adamratzman.forms.frontend.utils.registerLoginEndpoints
 import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.Options
-import org.json.simple.JSONArray
-import org.json.simple.JSONObject
-import org.json.simple.parser.JSONParser
 import org.jsoup.Jsoup
-import spark.ModelAndView
 import spark.Request
-import spark.Spark.*
+import spark.Spark.port
+import spark.Spark.staticFileLocation
 import spark.template.handlebars.HandlebarsTemplateEngine
 import java.net.URLEncoder
 import java.text.DateFormat
 import java.time.Instant
 import java.util.*
+import kotlin.collections.getOrNull
+import kotlin.collections.hashMapOf
+import kotlin.collections.joinToString
+import kotlin.collections.mapIndexed
+import kotlin.collections.set
+import kotlin.collections.toList
 
 fun main(args: Array<String>) {
     FormFrontend()
@@ -50,8 +54,13 @@ class FormFrontend {
         val map = hashMapOf<String, Any?>()
         val session = request.session()
         val user: User? = session.attribute<User>("user")
-        map["user"] = user
-        map["role"] = user?.role ?: Role.NOT_LOGGED_IN
+        user?.let {
+            if (getUser(user.username) != user) session.removeAttribute("user") else {
+                map["user"] = user
+                map["role"] = user.role
+            }
+        }
+        if (!map.containsKey("role")) map["role"] = Role.NOT_LOGGED_IN
         map["pageTitle"] = pageTitle
 
         return map
