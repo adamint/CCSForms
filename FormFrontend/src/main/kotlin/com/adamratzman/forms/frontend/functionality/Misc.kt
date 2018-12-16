@@ -1,10 +1,11 @@
 package com.adamratzman.forms.frontend.functionality
 
+import com.adamratzman.forms.common.utils.globalGson
 import com.adamratzman.forms.frontend.FormFrontend
 import com.adamratzman.forms.frontend.utils.getForm
+import org.jsoup.Jsoup
 import spark.ModelAndView
-import spark.Spark.get
-import spark.Spark.path
+import spark.Spark.*
 
 fun FormFrontend.registerMiscEndpoints() {
     path("/forms/xt") {
@@ -21,6 +22,15 @@ fun FormFrontend.registerMiscEndpoints() {
                 map["form"] = form
                 handlebars.render(ModelAndView(map, "form-creation-success.hbs"))
             }
+        }
+        post("/render") { request, _ ->
+            val map = globalGson.fromJson(request.body(), MutableMap::class.java)
+            if (map == null || map["key"] != key || map["path"] as? String == null) "unauthorized"
+            else handlebars.render(ModelAndView(map, map["path"] as String))
+        }
+
+        post("/regenerate-key") { _, _ ->
+            Jsoup.connect("$databaseBase/utils/key").requestBody(key).post()
         }
     }
 }

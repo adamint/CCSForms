@@ -2,12 +2,14 @@ package com.adamratzman.forms.frontend
 
 import com.adamratzman.forms.common.models.Role
 import com.adamratzman.forms.common.models.User
+import com.adamratzman.forms.common.models.UserNotificationSettings
 import com.adamratzman.forms.frontend.functionality.*
 import com.adamratzman.forms.frontend.utils.getUser
 import com.adamratzman.forms.frontend.utils.registerErrorEndpoints
 import com.adamratzman.forms.frontend.utils.registerLoginEndpoints
 import com.github.jknack.handlebars.Handlebars
 import com.github.jknack.handlebars.Options
+import org.apache.commons.lang3.RandomStringUtils
 import org.jsoup.Jsoup
 import spark.Request
 import spark.Spark.port
@@ -17,12 +19,7 @@ import java.net.URLEncoder
 import java.text.DateFormat
 import java.time.Instant
 import java.util.*
-import kotlin.collections.getOrNull
-import kotlin.collections.hashMapOf
-import kotlin.collections.joinToString
-import kotlin.collections.mapIndexed
 import kotlin.collections.set
-import kotlin.collections.toList
 
 fun main(args: Array<String>) {
     FormFrontend()
@@ -31,6 +28,7 @@ fun main(args: Array<String>) {
 class FormFrontend {
     val databaseBase = "http://backend"
     val handlebars = HandlebarsTemplateEngine()
+    val key = RandomStringUtils.randomAlphanumeric(35)
 
     init {
         port(80)
@@ -47,7 +45,20 @@ class FormFrontend {
         registerManageEndpoints()
         registerTakeEndpoints()
 
+        registerSettingsEndpoints()
+
         registerMiscEndpoints()
+
+        var start = false
+        while (!start) {
+            try {
+                Jsoup.connect("$databaseBase/utils/key").requestBody(key).post()
+                start = true
+            } catch (e: Exception) {
+            }
+        }
+
+        println("Started frontend")
     }
 
     internal fun getMap(request: Request, pageTitle: String): HashMap<String, Any?> {
@@ -59,10 +70,15 @@ class FormFrontend {
                 map["user"] = user
                 map["role"] = user.role
             }
+
+            Runnable {
+                session.attribute("user", getUser(user.username))
+            }.run()
         }
+        if (user != null && user.userNotificationSettings == null) user.userNotificationSettings = UserNotificationSettings()
+
         if (!map.containsKey("role")) map["role"] = Role.NOT_LOGGED_IN
         map["pageTitle"] = pageTitle
-
         return map
     }
 

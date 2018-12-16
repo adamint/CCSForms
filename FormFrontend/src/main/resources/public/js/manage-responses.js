@@ -49,7 +49,7 @@ function rmq(id) {
         $.post("/forms/manage/response/delete", JSON.stringify({'formId': form.id, 'responseId': response.id}), function (data) {
             if (data.status === 200) {
                 document.location.reload(true);
-            } else UIKit.notification(data.message, 'danger');
+            } else UIkit.notification(data.message, 'danger');
         }, "json");
     }
 }

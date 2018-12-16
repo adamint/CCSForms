@@ -16,6 +16,7 @@ dependencies {
     compile "com.sparkjava:spark-core:2.7.2"
     compile "com.sparkjava:spark-template-handlebars:2.7.1"
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    compile 'commons-validator:commons-validator:1.4.1'
     testCompile("junit:junit")
 }
 

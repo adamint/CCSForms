@@ -1,0 +1,39 @@
+{{> header.hbs }}
+
+{{#with user}}
+    <h2 class="uk-text-center uk-margin-large-bottom"><b>User</b> settings</h2>
+    <div class="uk-margin-auto">
+        <div class="uk-text-center">
+            <h4 class="uk-inline uk-margin-remove-bottom uk-margin-small-right"><b>Email</b></h4>
+            <div class="uk-width-2-5 uk-inline">
+                <button type="button" id="change-email" class="uk-form-icon uk-form-icon-flip uk-icon"
+                        uk-icon="icon: {{#if email}}close{{else}}check;{{/if}}"></button>
+                <input class="uk-input" id="set-email" type="email" {{#if email}}value="{{email}}" disabled{{/if}}>
+            </div>
+            <p class="uk-margin-small-top">
+                {{#if email}}
+                    Click the <i>X</i> to remove the set email
+                {{else}}
+                    Click the <i>check</i> to link an email account in order to receive notifications
+                {{/if}}
+            </p>
+            {{#if email}}
+                <h3 class="uk-text-center uk-margin-small-bottom"><b>Email Notification Settings</b></h3>
+                {{#with userNotificationSettings}}
+                    <div class="uk-width-1-5 uk-text-left uk-margin-auto">
+                        <div class="uk-margin-small-top"><input id="notification-new-submission" type="checkbox" {{#if globalNotifyNewSubmissions}}checked{{/if}} class="uk-margin-small-right uk-checkbox">Notify for new form submissions<br>(your forms)</div>
+                        <div class="uk-margin-small-top"><input id="notification-delete-submission" type="checkbox" {{#if globalNotifySubmissionDeletion}}checked{{/if}} class="uk-margin-small-right uk-checkbox">Notify when submissions are deleted<br>(your forms)</div>
+                    </div>
+                {{/with}}
+                <button id="notification-update" class="uk-button uk-button-small uk-button-primary uk-margin-small-top">Update Notification Settings</button>
+            {{/if}}
+        </div>
+    </div>
+
+    <script type="text/javascript" src="/js/settings.js"></script>
+    <script>
+        let emailSet = {{#if email}}true{{else}}false{{/if}};
+    </script>
+
+{{/with}}
+{{> footer.hbs }}

@@ -10,16 +10,23 @@ import com.rethinkdb.net.Connection
 import net.sargue.mailgun.Configuration
 import net.sargue.mailgun.Mail
 import org.apache.commons.lang3.RandomStringUtils
+import org.jsoup.Jsoup
 import spark.Spark.*
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 fun main(args: Array<String>) {
-    FormBackend()
+    FormBackend(args[0])
 }
 
-class FormBackend {
+class FormBackend(val frontendIp: String) {
     lateinit var conn: Connection
     lateinit var loginUtils: LoginUtils
     lateinit var mailgunConfig: Configuration
+    lateinit var key: String
+
+    val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
+    val frontend = "http://frontend"
 
     init {
         databaseSetup()
@@ -38,8 +45,19 @@ class FormBackend {
         registerFormResponseDeletionEndpoint()
         registerFormSpecificEndpoints()
         registerEmailEndpoints()
+        registerNotificationsEndpoints()
 
         initiateMailgunConfig()
+
+        var start = false
+        while (!start) {
+            try {
+                Jsoup.connect("$frontend/forms/xt/regenerate-key").post()
+                start = true
+            } catch (e: Exception) {
+            }
+        }
+        println("Started backend")
     }
 
     fun databaseSetup() {
@@ -58,7 +76,7 @@ class FormBackend {
             }
 
             val tables = listOf("users", "login_attempts", "forms", "responses", "logins", "credentials",
-                    "email-verification")
+                    "email_verification")
 
             tables.forEach { table ->
                 if (!r.tableList().run<List<String>>(conn).contains(table)) {
@@ -78,6 +96,7 @@ class FormBackend {
                             r.tableCreate(table).run<Any>(conn)
                             r.table(table).indexCreate("creator").runNoReply(conn)
                         }
+                        "email_verification" -> r.tableCreate(table).optArg("primary_key", "username").run<Any>(conn)
                         else -> r.tableCreate(table).run<Any>(conn)
                     }
                 }
@@ -97,7 +116,7 @@ class FormBackend {
                 loginUtils.insertUser("counselor", "counselor", Role.COUNSELING)
             }
 
-            expireOldVerificationRequests()
+            scheduledExecutor.scheduleAtFixedRate({ expireOldVerificationRequests() }, 0, 1, TimeUnit.MINUTES)
         } catch (e: ReqlOpFailedError) {
             databaseSetup()
         }
@@ -168,6 +187,23 @@ class FormBackend {
             val submission = globalGson.fromJson(request.body(), FormResponseDatabaseWrapper::class.java)
             if (submission?.response?.formId != null) {
                 r.table("responses").insert(r.json(globalGson.toJson(submission))).run<Any>(conn)
+
+                val form = getForms().first { it.id == submission.formId }
+
+                val formCreator = getUser(form.creator).user!!
+                if (formCreator.email != null && formCreator.userNotificationSettings?.globalNotifyNewSubmissions == true) {
+                    val subject = "New CHSForms Submission - ${form.name}"
+                    val map = getEmailMap()
+                    map["user"] = formCreator.username
+                    map["formName"] = form.name
+                    map["responseLink"] = "$frontend/forms/manage/response/${submission.id}"
+                    map["allResponsesLink"] = "$frontend/forms/manage/responses/${form.id}"
+                    map["submitted"] = submission.submitter ?: "Someone"
+
+                    val body = renderTemplate(map, "email-response-notification.hbs")
+
+                    sendEmail(QueuedMail(formCreator.email!!, subject, body))
+                }
             }
         }
     }
@@ -226,22 +262,82 @@ class FormBackend {
         path("/utils") {
             get("/random-form-id") { _, _ -> getRandomFormId() }
             get("/generate-response-id") { _, _ -> getRandomResponseId() }
+            post("/key") { request, _ -> key = request.body(); Unit }
+            get("/random") { _, _ -> getRandomId() }
         }
     }
 
     fun registerEmailEndpoints() {
         path("/mail") {
             post("/send") { request, _ ->
-                val queuedMail = globalGson.fromJson(request.body(),QueuedMail::class.java)
+                val queuedMail = globalGson.fromJson(request.body(), QueuedMail::class.java)
                 sendEmail(queuedMail)
             }
 
+            post("/remove/:id") { request, _ ->
+                val user = getUser(request.params(":id")).user!!
+                user.email = null
+                r.table("users").get(request.params(":id")).update(r.json(globalGson.toJson(user))).run<Any>(conn)
+            }
+
+            path("/verification") {
+                post("/put") { request, _ ->
+                    globalGson.fromJson(request.body(), EmailVerification::class.java)?.let { verification ->
+                        r.table("email_verification").insert(r.json(globalGson.toJson(verification))).run<Any>(conn)
+                        val map = getEmailMap()
+                        map["user"] = verification.username
+                        map["link"] = "http://$frontendIp/settings/confirm-email/${verification.id}"
+
+                        val body = renderTemplate(map, "email-verification-body.hbs")
+                        sendEmail(QueuedMail(verification.email, "CHSForms Email Verification", body))
+
+                    }
+                }
+
+                get("/get/:id") { request, _ ->
+                    globalGson.toJson(getVerificationRequest(request.params(":id")))
+                }
+
+                get("/get-id/:id") { request, _ ->
+                    globalGson.toJson(getVerificationRequests().find { it.id == request.params(":id") })
+                }
+
+                post("/remove/:id") { request, _ ->
+                    r.table("email_verification").get(request.params(":id")).delete().run(conn)
+                }
+
+                post("/confirm/:id") { request, _ ->
+                    val email = request.body()
+                    val username = request.params(":id")
+                    val user = getUser(username).user!!
+                    user.email = email
+                    r.table("users").get(username).update(r.json(globalGson.toJson(user))).run(conn)
+                }
+
+                get("/exists/:id") { request, _ ->
+                    (getVerificationRequest(request.params(":id")) != null).toString()
+                }
+
+            }
+        }
+    }
+
+    fun registerNotificationsEndpoints() {
+        path("/notifications/:username") {
+            post("/update") { request, _ ->
+                val user = getUser(request.params(":username")).user!!
+                user.userNotificationSettings = globalGson.fromJson(request.body(), UserNotificationSettings::class.java)
+                r.table("users").get(request.params(":username")).update(r.json(globalGson.toJson(user))).run(conn)
+            }
         }
     }
 
     fun expireOldVerificationRequests() {
-        r.table("email-verification").filter { it.g("expiry").lt(System.currentTimeMillis()) }.delete().runNoReply(conn)
+        r.table("email_verification").filter { it.g("expiry").lt(System.currentTimeMillis()) }.delete().runNoReply(conn)
     }
+
+    fun getVerificationRequest(username: String) = asPojo(globalGson, r.table("email_verification").get(username).run(conn), EmailVerification::class.java)
+    fun getVerificationRequests() = r.table("email_verification").run<Any>(conn).queryAsArrayList(globalGson, EmailVerification::class.java).filterNotNull()
 
     fun getUser(username: String): SparkUserResponse {
         return SparkUserResponse(asPojo(globalGson, r.table("users").get(username).run(conn), User::class.java),
@@ -269,19 +365,30 @@ class FormBackend {
         return if (getResponses().find { it.id == randomId } == null) randomId else getRandomResponseId()
     }
 
+    fun getRandomId(): String = r.uuid().run(conn)
+
     fun getCredential(id: String) = asPojo(globalGson, r.table("credentials").get(id).run(conn), Credential::class.java)!!.value
 
     fun sendEmail(queuedMail: QueuedMail) = Mail.using(mailgunConfig)
             .to(queuedMail.to)
             .subject(queuedMail.subject)
-            .text(queuedMail.body)
+            .html(queuedMail.body.replace("\n", "").replace("[nl]", "<br>"))
             .build()
-            .send()
+            .sendAsync()
 
     fun initiateMailgunConfig() {
         mailgunConfig = Configuration()
-                .domain("adamratzman.com")
+                .domain("chsforms.adamratzman.com")
                 .apiKey(getCredential("mailgun_key"))
-                .from("CHSForms (Carmel High School)", "chsforms.adamratzman.com")
+                .from("CHSForms (Carmel High School)", "accounts@chsforms.adamratzman.com")
     }
+
+    fun renderTemplate(map: MutableMap<Any, Any>, templatePath: String): String {
+        map["key"] = key
+        map["path"] = templatePath
+
+        return Jsoup.connect("$frontend/forms/xt/render").requestBody(globalGson.toJson(map)).post().body().text()
+    }
+
+    fun getEmailMap() = mutableMapOf<Any, Any>("settingsLink" to "$frontend/settings")
 }

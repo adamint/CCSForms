@@ -5,4 +5,4 @@ data class StatusWithRedirect(val status: Int, val redirect: String?, val messag
 data class Credential(val id: String, val value: String)
 
 data class QueuedMail(val to: String, val subject: String, val body: String)
-data class EmailVerification(val username: String, val id: String, val expiry: Long)
+data class EmailVerification(val username: String, val email: String, val expiry: Long, val id: String)

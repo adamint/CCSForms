@@ -24,7 +24,9 @@ data class UserLogin(val username: String, val salt: ByteArray, val hash: ByteAr
     }
 }
 
-data class User(val username: String, val role: Role, var email: String? = null)
+data class User(val username: String, val role: Role, var email: String? = null, var userNotificationSettings: UserNotificationSettings? = null)
+
+data class UserNotificationSettings(var globalNotifyNewSubmissions: Boolean = true, var globalNotifySubmissionDeletion: Boolean = false)
 
 enum class Role(val readable: String, val position: Int) {
     NOT_LOGGED_IN("Not Logged in", 0), STUDENT("Student", 1),

@@ -4,7 +4,8 @@ data class Form(var id: String?, val creator: String, val name: String, val desc
                 val viewResultRoles: List<Role?>, val viewResultUsers: MutableList<String> /* username */,
                 val allowedContributors: MutableList<String> /* for future use, e.g. a teacher's class or a grade */,
                 var allowMultipleSubmissions: Boolean, var creationDate: Long,
-                val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>) {
+                val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>,
+                val additionalNotificationSettings: MutableList<FormSpecificNotificationSettings> = mutableListOf()) {
     infix fun isIdenticalTo(other: Form): Boolean {
         return if (other.formQuestions.size != formQuestions.size) false
         else other.formQuestions.filterNot { otherQuestion ->
@@ -32,6 +33,9 @@ data class Form(var id: String?, val creator: String, val name: String, val desc
         }.isEmpty()
     }
 }
+
+data class FormSpecificNotificationSettings(val username: String, var receiveSubmissionNotifications: Boolean,
+                                            var receiveSubmissionDeletionNotifications: Boolean)
 
 data class FormResponseDatabaseWrapper(val submitter: String?, val response: FormResponse, val formId: String,
                                        val time: Long = System.currentTimeMillis(), val id: String)

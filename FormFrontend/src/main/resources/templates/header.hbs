@@ -27,6 +27,7 @@
 
     <div class="uk-navbar-right">
         {{#if user}}
+            <a href="/settings" uk-icon="icon: cog" class="uk-margin-small-right"></a>
             <a href="/logout" class="uk-margin-medium-right">Logout, {{user.username}}!</a>
         {{else}}
             <a href="/login" class="uk-button uk-button-primary uk-margin-medium-right">Login</a>
