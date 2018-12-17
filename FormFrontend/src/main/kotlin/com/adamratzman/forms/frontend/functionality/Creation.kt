@@ -123,7 +123,7 @@ fun FormFrontend.registerCreationEndpoints() {
                             val questionType = (questionJson["type"] as? Long)?.toInt()
                             val questionName = questionJson["question"] as? String
                             val required = questionJson["required"] as? Boolean ?: true
-                            if (questionType !in 1..5 || questionName == null || questionName.length < 5) {
+                            if (questionType !in 1..5 || questionName == null || questionName.length < 2) {
                                 invalidMessage = "Invalid question composition contained"
                                 return@forEach
                             } else if (questionType == 4) {

@@ -12,7 +12,17 @@ $(function () {
         };
 
         update(submitObject);
-    })
+    });
+
+    $("#form-specific-notification-update").click(function () {
+        let submitObject = {
+            'type': 'notification-form-update',
+            'formId': formId,
+            'newSubmission': $("#notification-new-submission").prop("checked"),
+            'deleteSubmission': $("#notification-delete-submission").prop("checked")
+        };
+        update(submitObject)
+    });
 });
 
 let queuedActions = [];

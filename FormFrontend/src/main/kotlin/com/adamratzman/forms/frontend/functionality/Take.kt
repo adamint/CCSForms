@@ -27,14 +27,14 @@ fun FormFrontend.registerTakeEndpoints() {
                 } else {
                     val user = map["user"] as? User
                     if (user == null && !form.submitRoles.contains(null)) response.redirect(getLoginRedirect(request, "/forms/take/$formId", "This form requires you to log in"))
-                    else if (user != null && !form.submitRoles.contains(user.role) && user.username != form.creator) {
+                    else if (user != null && !form.submitRoles.contains(null) &&  !form.submitRoles.contains(user.role) && user.username != form.creator) {
                         map["pageTitle"] = "Unauthorized"
-                        map["description"] = "You don't have permission to take this form. If you think this is in error, please contact ${form.creator}"
+                        map["description"] = "You don't have permission to take this form. If you think this is in error, please contact the form creator, ${form.creator}"
                         handlebars.render(ModelAndView(map, "error.hbs"))
                     } else if (!form.allowMultipleSubmissions && user != null && user.username != form.creator
                             && getFromBackend("/forms/info/${form.id}/taken/${user.username}") == "true") {
                         map["pageTitle"] = "You've already taken this form!"
-                        map["description"] = "You don't have permission to take it again. If you think this is in error, please contact ${form.creator}"
+                        map["description"] = "You don't have permission to take it again. If you think this is in error, please contact the form creator, ${form.creator}"
                         handlebars.render(ModelAndView(map, "error.hbs"))
                     } else if (form.expireDate != null && form.expireDate!! < System.currentTimeMillis()) {
                         map["pageTitle"] = "Form not available anymore"

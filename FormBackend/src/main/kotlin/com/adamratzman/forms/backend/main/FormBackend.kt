@@ -12,6 +12,9 @@ import net.sargue.mailgun.Mail
 import org.apache.commons.lang3.RandomStringUtils
 import org.jsoup.Jsoup
 import spark.Spark.*
+import java.text.DateFormat
+import java.time.Instant
+import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -157,7 +160,33 @@ class FormBackend(val frontendIp: String) {
 
     fun registerFormResponseDeletionEndpoint() {
         post("/forms/response/delete/:id") { request, _ ->
-            r.table("responses").get(request.params(":id")).delete().run(conn)
+            val response = getResponses().first { it.id == request.params(":id") }
+            r.table("responses").get(response.id).delete().runNoReply(conn)
+
+            scheduledExecutor.execute {
+                val form = getForms().first { it.id == response.formId }
+                val formCreator = getUser(form.creator).user!!
+
+                val sendEmailTo = mutableListOf<User>()
+                if (formCreator.email != null && formCreator.userNotificationSettings?.globalNotifySubmissionDeletion == true) sendEmailTo.add(formCreator)
+
+                form.additionalNotificationSettings.asSequence().filter { it.notificationSettings.globalNotifySubmissionDeletion }
+                        .mapNotNull { getUser(it.username).user }
+                        .filter { it.email != null }.toList().let { sendEmailTo.addAll(it) }
+
+                if (sendEmailTo.isNotEmpty()) {
+                    val subject = "New CHSForms Submission - ${form.name}"
+                    val map = getEmailMap()
+                    map["user"] = formCreator.username
+                    map["formName"] = form.name
+                    map["time"] = response.time.toDateTime()
+                    map["allResponsesLink"] = "$frontend/forms/manage/responses/${form.id}"
+                    map["submitted"] = response.submitter ?: "an anonymous person"
+                    val body = renderTemplate(map, "email-response-deletion-notification.hbs")
+
+                    sendEmailTo.forEach { sendEmail(QueuedMail(it.email!!, subject, body)) }
+                }
+            }
         }
     }
 
@@ -188,21 +217,30 @@ class FormBackend(val frontendIp: String) {
             if (submission?.response?.formId != null) {
                 r.table("responses").insert(r.json(globalGson.toJson(submission))).run<Any>(conn)
 
-                val form = getForms().first { it.id == submission.formId }
+                scheduledExecutor.execute {
+                    val form = getForms().first { it.id == submission.formId }
+                    val formCreator = getUser(form.creator).user!!
 
-                val formCreator = getUser(form.creator).user!!
-                if (formCreator.email != null && formCreator.userNotificationSettings?.globalNotifyNewSubmissions == true) {
-                    val subject = "New CHSForms Submission - ${form.name}"
-                    val map = getEmailMap()
-                    map["user"] = formCreator.username
-                    map["formName"] = form.name
-                    map["responseLink"] = "$frontend/forms/manage/response/${submission.id}"
-                    map["allResponsesLink"] = "$frontend/forms/manage/responses/${form.id}"
-                    map["submitted"] = submission.submitter ?: "Someone"
+                    val sendEmailTo = mutableListOf<User>()
+                    if (formCreator.email != null && formCreator.userNotificationSettings?.globalNotifyNewSubmissions == true) sendEmailTo.add(formCreator)
 
-                    val body = renderTemplate(map, "email-response-notification.hbs")
+                    form.additionalNotificationSettings.asSequence().filter { it.notificationSettings.globalNotifyNewSubmissions }
+                            .mapNotNull { getUser(it.username).user }
+                            .filter { it.email != null }.toList().let { sendEmailTo.addAll(it) }
 
-                    sendEmail(QueuedMail(formCreator.email!!, subject, body))
+                    if (sendEmailTo.isNotEmpty()) {
+                        val subject = "New CHSForms Submission - ${form.name}"
+                        val map = getEmailMap()
+                        map["user"] = formCreator.username
+                        map["formName"] = form.name
+                        map["time"] = submission.time.toDateTime()
+                        map["responseLink"] = "$frontend/forms/manage/response/${submission.id}"
+                        map["allResponsesLink"] = "$frontend/forms/manage/responses/${form.id}"
+                        map["submitted"] = submission.submitter ?: "Someone"
+                        val body = renderTemplate(map, "email-response-notification.hbs")
+
+                        sendEmailTo.forEach { sendEmail(QueuedMail(it.email!!, subject, body)) }
+                    }
                 }
             }
         }
@@ -238,8 +276,8 @@ class FormBackend(val frontendIp: String) {
                 get("/open/:role/:user") { request, _ ->
                     val role = Role.values().first { it.position == request.params(":role").toInt() }
                     val username = request.params(":user")
-                    getForms().asSequence().filterNot { getUser(it.creator).user!!.role == Role.ADMIN }.filter { form ->
-                        form.creator == username || (form.submitRoles.contains(null) || form.submitRoles.contains(role) || role == Role.ADMIN)
+                    getForms().asSequence().filter { getUser(it.creator).user!!.role == Role.ADMIN ||  it.creator == username }
+                            .filter { form -> (form.submitRoles.contains(null) || form.submitRoles.contains(role))
                     }.toList().let { globalGson.toJson(it) }
                 }
             }
@@ -324,6 +362,15 @@ class FormBackend(val frontendIp: String) {
 
     fun registerNotificationsEndpoints() {
         path("/notifications/:username") {
+            post("/form/:form") { request, _ ->
+                val username = request.params(":username")
+                val settings = globalGson.fromJson(request.body(), UserNotificationSettings::class.java)
+                val form = getForms().first { it.id == request.params(":form") }
+                form.additionalNotificationSettings.removeIf { it.username == username }
+                form.additionalNotificationSettings.add(FormSpecificNotificationSettings(username, settings))
+
+                r.table("forms").get(form.id).update(r.json(globalGson.toJson(form))).runNoReply(conn)
+            }
             post("/update") { request, _ ->
                 val user = getUser(request.params(":username")).user!!
                 user.userNotificationSettings = globalGson.fromJson(request.body(), UserNotificationSettings::class.java)
@@ -390,5 +437,7 @@ class FormBackend(val frontendIp: String) {
         return Jsoup.connect("$frontend/forms/xt/render").requestBody(globalGson.toJson(map)).post().body().text()
     }
 
-    fun getEmailMap() = mutableMapOf<Any, Any>("settingsLink" to "$frontend/settings")
+    fun getEmailMap() = mutableMapOf<Any, Any>("settingsLink" to "http://$frontendIp/settings")
 }
+
+fun Long.toDateTime() = DateFormat.getDateTimeInstance().format(Date.from(Instant.ofEpochMilli(this)))

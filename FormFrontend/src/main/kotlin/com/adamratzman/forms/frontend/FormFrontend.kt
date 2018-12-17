@@ -83,7 +83,7 @@ class FormFrontend {
     }
 
     internal fun getLoginRedirect(request: Request, url: String, message: String? = null) = "/login?redirect=" +
-            encode(url + request.queryMap().toMap().toList()
+            encode(url + request.queryMap().toMap().toList().filter { it.second != null }
                     .mapIndexed { i, pair -> (if (i == 0) "?" else "") + "${pair.first}=${pair.second.getOrNull(0)}" }
                     .joinToString("&")) + (if (message != null) "&message=${encode(message)}" else "")
 

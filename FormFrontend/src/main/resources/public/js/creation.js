@@ -56,7 +56,7 @@ function initializeQuestionCreation() {
     var multiple = $("#form-id").val().length > 0;
     if (multiple) submitName = "Submit edits"; else submitName = "Create your form";
     var questionDiv = $("#question-div");
-    questionDiv.append("<div id='questions'></div>" +
+    questionDiv.append("<div uk-sortable id='questions'></div>" +
         "<a id='new-question-button' href='#question-" + currId + "' uk-icon=\"icon: plus-circle; ratio: 3;\" onclick='onNewQuestionClick()' class=\"uk-align-right\"></a>")
     var doneButton = $("<button id='create-form-submit' class='uk-button uk-button-primary' form=''>" + submitName + "</button>");
     doneButton.click(function () {
@@ -111,7 +111,7 @@ function renderQuestionBox(questionDiv) {
 
 function appendQuestionCreation(questionDiv) {
     var type = getTypeByNumberString(questionDiv.find("select").first().val());
-    questionDiv.find(".uk-card-title").first().text(type.readable);
+    questionDiv.find(".uk-card-title").first().html("<span class='uk-sortable-handle uk-margin-small-right' uk-icon='icon: table'></span>" + type.readable);
     var content = questionDiv.find(".content").first();
     content.empty();
 
@@ -240,9 +240,9 @@ function verifyFormCompletion() {
         var question = $(this).find("textarea").first();
         var questionName = question.val();
         var required = $(this).find("input.uk-checkbox").first().prop("checked");
-        if (questionName.length < 10) {
+        if (questionName.length < 2) {
             question.addClass("uk-form-danger");
-            UIkit.notification("Question " + (index + 1) + " must be at least 10 characters in length!", 'danger');
+            UIkit.notification("Question " + (index + 1) + " must be at least 2 characters in length!", 'danger');
             submit = false;
         } else question.removeClass("uk-form-danger");
 

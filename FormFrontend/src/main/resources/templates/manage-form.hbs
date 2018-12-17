@@ -12,7 +12,7 @@
 
     function submitDelete(id) {
         $.post("/forms/delete/" + id, function (data) {
-           if (data.status === 200) window.location.href = "/forms/manage?delete=true";
+            if (data.status === 200) window.location.href = "/forms/manage?delete=true";
             else window.location.href = data.redirect
         }, "json")
     }
@@ -22,10 +22,10 @@
 {{#with form}}
     <div class="uk-text-center">
         <h2 class="uk-text-center uk-margin-large-bottom"><b>{{name}}</b></h2>
-        <h3 class="uk-margin-large-bottom"><a href="/forms/manage/responses/{{id}}">Manage</a> responses for this form
-            ({{numResponses}})</h3>
+        <h4><a href="/forms/manage/responses/{{id}}">Manage responses</a> for this form ({{numResponses}} total)</h4>
+
         <div class="uk-margin-auto uk-margin-medium-bottom uk-width-2-3 uk-card uk-card-default uk-card-large uk-card-body">
-            <h3 class="uk-card-title">Form is accessible by {{accessibleGroups}}</h3>
+            <h3 class="uk-card-title">Form is accessible to {{accessibleGroups}}</h3>
             <p>Description: {{description}}</p>
             <div class="uk-card-footer">
                 <a class="uk-button uk-button-default" href="/forms/create?existing={{id}}">Edit form</a>
@@ -33,8 +33,43 @@
                 <a target="_blank" class="uk-button uk-button-primary" href="/forms/take/{{id}}">Go to the form</a>
             </div>
         </div>
+
+        <div id="notifications">
+            <h3 class="uk-text-center uk-margin-small-bottom"><b>Email Notification Settings</b></h3>
+            {{#unless hasEmail}}
+                <p>You <b>don't</b> have an email set up for notifications. Please click <a href="/settings">here</a> to link one.</p>
+            {{else}}
+                {{#if userIsCreator}}
+                    <p>Since you created this form, by default these notification settings mirror your <a
+                            href="/settings">global</a>
+                        email notification settings</p>{{/if}}
+                {{#with userNotificationSettings}}
+                    <div class="uk-width-1-5 uk-text-left uk-margin-auto">
+                        <div class="uk-margin-small-top"><input id="notification-new-submission" type="checkbox"
+                                                                {{#if globalNotifyNewSubmissions}}checked{{/if}}
+                                                                class="uk-margin-small-right uk-checkbox">Notify for new
+                            form submissions
+                        </div>
+                        <div class="uk-margin-small-top"><input id="notification-delete-submission" type="checkbox"
+                                                                {{#if globalNotifySubmissionDeletion}}checked{{/if}}
+                                                                class="uk-margin-small-right uk-checkbox">Notify when
+                            submissions are deleted
+                        </div>
+                    </div>
+                {{/with}}
+                <button id="form-specific-notification-update"
+                        class="uk-button uk-button-small uk-button-primary uk-margin-small-top">
+                    Update Notification Settings
+                </button>
+            {{/unless}}
+        </div>
     </div>
     <h3 class="uk-text-center"><a href="/forms/manage">Go back</a> to management home</h3>
 {{/with}}
+
+<script type="text/javascript">
+    let formId = "{{form.id}}";
+</script>
+<script type="text/javascript" src="/js/settings.js"></script>
 
 {{> footer.hbs }}

@@ -34,8 +34,7 @@ data class Form(var id: String?, val creator: String, val name: String, val desc
     }
 }
 
-data class FormSpecificNotificationSettings(val username: String, var receiveSubmissionNotifications: Boolean,
-                                            var receiveSubmissionDeletionNotifications: Boolean)
+data class FormSpecificNotificationSettings(val username: String, val notificationSettings: UserNotificationSettings)
 
 data class FormResponseDatabaseWrapper(val submitter: String?, val response: FormResponse, val formId: String,
                                        val time: Long = System.currentTimeMillis(), val id: String)

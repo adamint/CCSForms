@@ -6,6 +6,7 @@ import com.adamratzman.forms.common.models.User
 import com.adamratzman.forms.common.models.UserNotificationSettings
 import com.adamratzman.forms.common.utils.globalGson
 import com.adamratzman.forms.frontend.FormFrontend
+import com.adamratzman.forms.frontend.utils.getForm
 import com.adamratzman.forms.frontend.utils.getRandomId
 import com.adamratzman.forms.frontend.utils.getVerificationRequest
 import com.adamratzman.forms.frontend.utils.getVerificationRequestById
@@ -96,6 +97,18 @@ fun FormFrontend.registerSettingsEndpoints() {
                                         .requestBody(globalGson.toJson(UserNotificationSettings(newSubmission, deleteSubmission)))
                                         .post()
                             }
+                        }
+                        "notification-form-update" -> {
+                            val form = (json["formId"] as? String)?.let { getForm(it) }
+                            val newSubmission = json["newSubmission"] as? Boolean
+                            val deleteSubmission = json["deleteSubmission"] as? Boolean
+                            if (newSubmission == null || deleteSubmission == null || form == null) issue = "Invalid request"
+                            else {
+                                Jsoup.connect("$databaseBase/notifications/${user.username}/form/${form.id}")
+                                        .requestBody(globalGson.toJson(UserNotificationSettings(newSubmission, deleteSubmission)))
+                                        .post()
+                            }
+                            redirect = form?.id?.let { "/forms/manage/$it" } ?: "/forms/manage"
                         }
                     }
                 }

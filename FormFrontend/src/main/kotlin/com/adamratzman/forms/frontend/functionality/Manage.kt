@@ -40,7 +40,7 @@ fun FormFrontend.registerManageEndpoints() {
                     if (form == null) {
                         map["pageTitle"] = "You can't access the responses to this form"
                         map["description"] = "You don't have access to manage this form. Please make sure your username (${user.username}) and role (${user.role}) are able to manage the form."
-                    handlebars.render(ModelAndView(map, "error.hbs"))
+                        handlebars.render(ModelAndView(map, "error.hbs"))
                     } else {
                         map["pageTitle"] = "Responses | ${form.name}"
                         map["form"] = form
@@ -73,6 +73,14 @@ fun FormFrontend.registerManageEndpoints() {
                             val responses = getResponsesFor(formId)
                             map["numResponses"] = responses.size
                             map["accessibleGroups"] = if (form.submitRoles.contains(null)) "anyone" else form.submitRoles.joinToString { it!!.readable.toLowerCase() + "s" }
+                            val userIsCreator = user.username == form.creator
+                            map["userIsCreator"] = userIsCreator
+                            map["hasEmail"] = user.email != null
+                            map["userNotificationSettings"] = form.additionalNotificationSettings.find { it.username == user.username }?.notificationSettings
+                                    ?: if (userIsCreator) user.userNotificationSettings
+                                    ?: UserNotificationSettings(false, false)
+                            else UserNotificationSettings()
+
                             handlebars.render(ModelAndView(map, "manage-form.hbs"))
                         }
                     }
@@ -84,7 +92,7 @@ fun FormFrontend.registerManageEndpoints() {
                     val map = getMap(request, "TEMP")
                     val user = map["user"] as? User
                     val responseId = request.params(":id")
-                    val formResponse = getResponses().find { it.id == responseId}
+                    val formResponse = getResponses().find { it.id == responseId }
                     val form = formResponse?.let { getForm(it.formId) }
 
                     when {
