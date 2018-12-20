@@ -23,7 +23,7 @@ fun FormFrontend.registerSettingsEndpoints() {
         get("") { request, response ->
             val map = getMap(request, "Change Settings")
             if (map["user"] == null) response.redirect(getLoginRedirect(request, "/settings"))
-            map["username"] = (map["user"] as User).username
+            map["username"] = (map["user"] as? User)?.username
             handlebars.render(ModelAndView(map, "settings.hbs"))
         }
 

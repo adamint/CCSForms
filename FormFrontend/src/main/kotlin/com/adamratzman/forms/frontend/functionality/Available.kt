@@ -18,7 +18,7 @@ fun FormFrontend.registerAvailableEndpoint() {
         val forms = getFromBackend("/forms/available/open/${role.position}/${user?.username ?: "null"}").let {
             globalGson.fromJson(it, Array<Form>::class.java)
         }
-        println(forms.toList())
+
         val counselingForms = forms.filter { it.category == FormCategory.COUNSELING }
         val athleticsForms = forms.filter { getUser(it.creator)?.role == Role.ATHLETICS || it.category == FormCategory.ATHLETICS }
         val genericSchoolForms = forms.filter { getUser(it.creator)?.role == Role.ADMIN && it !in counselingForms && it !in athleticsForms }
