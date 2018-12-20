@@ -175,12 +175,12 @@ class FormBackend(val frontendIp: String) {
                         .filter { it.email != null }.toList().let { sendEmailTo.addAll(it) }
 
                 if (sendEmailTo.isNotEmpty()) {
-                    val subject = "New CHSForms Submission - ${form.name}"
+                    val subject = "CHSForms Submission Deleted - ${form.name}"
                     val map = getEmailMap()
                     map["user"] = formCreator.username
                     map["formName"] = form.name
                     map["time"] = response.time.toDateTime()
-                    map["allResponsesLink"] = "$frontend/forms/manage/responses/${form.id}"
+                    map["allResponsesLink"] = "http://$frontendIp/forms/manage/responses/${form.id}"
                     map["submitted"] = response.submitter ?: "an anonymous person"
                     val body = renderTemplate(map, "email-response-deletion-notification.hbs")
 
@@ -234,8 +234,8 @@ class FormBackend(val frontendIp: String) {
                         map["user"] = formCreator.username
                         map["formName"] = form.name
                         map["time"] = submission.time.toDateTime()
-                        map["responseLink"] = "$frontend/forms/manage/response/${submission.id}"
-                        map["allResponsesLink"] = "$frontend/forms/manage/responses/${form.id}"
+                        map["responseLink"] = "http://$frontendIp/forms/manage/response/${submission.id}"
+                        map["allResponsesLink"] = "http://$frontendIp/forms/manage/responses/${form.id}"
                         map["submitted"] = submission.submitter ?: "Someone"
                         val body = renderTemplate(map, "email-response-notification.hbs")
 
@@ -276,8 +276,9 @@ class FormBackend(val frontendIp: String) {
                 get("/open/:role/:user") { request, _ ->
                     val role = Role.values().first { it.position == request.params(":role").toInt() }
                     val username = request.params(":user")
+                    val user = getUser(username).user!!
                     getForms().asSequence().filter { getUser(it.creator).user!!.role == Role.ADMIN ||  it.creator == username }
-                            .filter { form -> (form.submitRoles.contains(null) || form.submitRoles.contains(role))
+                            .filter { form -> user.role == Role.ADMIN || (form.submitRoles.contains(null) || form.submitRoles.contains(role))
                     }.toList().let { globalGson.toJson(it) }
                 }
             }
@@ -427,7 +428,7 @@ class FormBackend(val frontendIp: String) {
         mailgunConfig = Configuration()
                 .domain("chsforms.adamratzman.com")
                 .apiKey(getCredential("mailgun_key"))
-                .from("CHSForms (Carmel High School)", "accounts@chsforms.adamratzman.com")
+                .from("CHSForms (Carmel High School)", "noreply@chsforms.adamratzman.com")
     }
 
     fun renderTemplate(map: MutableMap<Any, Any>, templatePath: String): String {

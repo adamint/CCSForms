@@ -12,7 +12,7 @@ fun FormFrontend.registerMiscEndpoints() {
         get("/success/:id") { request, _ ->
             val formId = request.params(":id")
             val form = getForm(formId)
-            val map = getMap(request, "Take | ${form?.name}")
+            val map = getMap(request, "Success > ${form?.name}")
             if (form == null) {
                 map["pageTitle"] = "404"
                 map["description"] = "No form with that id was found"

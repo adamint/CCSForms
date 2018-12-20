@@ -18,7 +18,7 @@ fun FormFrontend.registerTakeEndpoints() {
             get("/:id") { request, response ->
                 val formId = request.params(":id")
                 val form = getForm(formId)
-                val map = getMap(request, "Take | ${form?.name}")
+                val map = getMap(request, "Take > ${form?.name}")
                 if (form == null) {
                     map["pageTitle"] = "404"
                     map["description"] = "No form with that id was found"
@@ -60,9 +60,8 @@ fun FormFrontend.registerTakeEndpoints() {
         }
 
         post("/submit") { request, _ ->
-            println(request.body())
             val status: StatusWithRedirect
-            val map = getMap(request, "Form Creation")
+            val map = getMap(request, "TEMP")
             val jsonObject = JSONParser().parse(request.body()) as? JSONObject
             if (jsonObject != null) {
                 var invalidMessage: String? = null
@@ -142,7 +141,7 @@ fun FormFrontend.registerTakeEndpoints() {
                     if (!submit) invalidMessage = "A field was incorrectly submitted"
                     else {
                         val user = map["user"] as? User
-                        if (!form.submitRoles.contains(user?.role) && form.creator != user?.username) invalidMessage = "You're not allowed to submit this form!"
+                        if (!form.submitRoles.contains(null) && !form.submitRoles.contains(user?.role) && form.creator != user?.username) invalidMessage = "You're not allowed to submit this form!"
                         else if (!form.allowMultipleSubmissions && getFromBackend("/forms/info/${form.id}/taken/${user?.username
                                         ?: "null"}").toBoolean()) {
                             invalidMessage = "You've already submitted this form!"

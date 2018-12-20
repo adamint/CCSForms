@@ -5,14 +5,14 @@ import spark.ModelAndView
 import spark.Spark.*
 
 fun FormFrontend.registerErrorEndpoints() {
-    notFound { request, response ->
+    notFound { request, _ ->
         val map = getMap(request, "Not Found")
         map["notFound"] = true
         map["description"] = "The page you were looking for couldn't be found :("
         handlebars.render(ModelAndView(map, "error.hbs"))
     }
 
-    internalServerError { request, response ->
+    internalServerError { request, _ ->
         val map = getMap(request, "Something went wrong!")
         map["title"] = "Server Error"
         map["description"] = "Please try again soon"
