@@ -278,10 +278,10 @@ class FormBackend(val frontendIp: String) {
                 get("/open/:role/:user") { request, _ ->
                     val role = Role.values().first { it.position == request.params(":role").toInt() }
                     val username = request.params(":user")
-                    val user = getUser(username).user!!
+                    val user = getUser(username).user
                     getForms().asSequence().filter { getUser(it.creator).user!!.role == Role.ADMIN || it.creator == username }
                             .filter { form ->
-                                user.role == Role.ADMIN || (form.submitRoles.contains(null) || form.submitRoles.contains(role))
+                                user?.role == Role.ADMIN || (form.submitRoles.contains(null) || form.submitRoles.contains(role))
                             }.toList().let { globalGson.toJson(it) }
                 }
             }
