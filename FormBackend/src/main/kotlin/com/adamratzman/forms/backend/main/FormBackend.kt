@@ -53,6 +53,7 @@ class FormBackend(val frontendIp: String) {
         initiateMailgunConfig()
 
         var start = false
+        // hold until the frontend is reachable
         while (!start) {
             try {
                 Jsoup.connect("$frontend/forms/xt/regenerate-key").post()
@@ -63,7 +64,8 @@ class FormBackend(val frontendIp: String) {
         println("Started backend")
     }
 
-    fun databaseSetup() {
+    private fun databaseSetup() {
+        // hold until the database is reachable
         while (true) {
             try {
                 conn = r.connection().hostname("database").port(28015).db("chs").connect()
@@ -135,7 +137,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerFormSpecificEndpoints() {
+    private fun registerFormSpecificEndpoints() {
         path("/forms/info/:id") {
             get("/taken/:username") { request, _ ->
                 val username = request.params(":username")
@@ -147,18 +149,18 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun getResponses(formId: String): List<FormResponseDatabaseWrapper> {
+    private fun getResponses(formId: String): List<FormResponseDatabaseWrapper> {
         return r.table("responses").getAll(formId).optArg("index", "formId").run<Any>(conn)
                 .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
     }
 
-    fun registerFormDeletionEndpoint() {
+    private fun registerFormDeletionEndpoint() {
         post("/forms/delete/:id") { request, _ ->
             r.table("forms").get(request.params(":id")).delete().run(conn)
         }
     }
 
-    fun registerFormResponseDeletionEndpoint() {
+    private fun registerFormResponseDeletionEndpoint() {
         post("/forms/response/delete/:id") { request, _ ->
             val response = getResponses().first { it.id == request.params(":id") }
             r.table("responses").get(response.id).delete().runNoReply(conn)
@@ -190,7 +192,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerFormCreationEndpoint() {
+    private fun registerFormCreationEndpoint() {
         post("/forms/create") { request, _ ->
             val form = globalGson.fromJson(request.body(), Form::class.java)
             if (form.id != null) {
@@ -211,7 +213,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerFormSubmissionEndpoint() {
+    private fun registerFormSubmissionEndpoint() {
         post("/forms/submit") { request, _ ->
             val submission = globalGson.fromJson(request.body(), FormResponseDatabaseWrapper::class.java)
             if (submission?.response?.formId != null) {
@@ -246,7 +248,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerFormRetrievalEndpoints() {
+    private fun registerFormRetrievalEndpoints() {
         path("/forms") {
             path("/responses") {
                 get("/:id") { request, _ ->
@@ -277,9 +279,10 @@ class FormBackend(val frontendIp: String) {
                     val role = Role.values().first { it.position == request.params(":role").toInt() }
                     val username = request.params(":user")
                     val user = getUser(username).user!!
-                    getForms().asSequence().filter { getUser(it.creator).user!!.role == Role.ADMIN ||  it.creator == username }
-                            .filter { form -> user.role == Role.ADMIN || (form.submitRoles.contains(null) || form.submitRoles.contains(role))
-                    }.toList().let { globalGson.toJson(it) }
+                    getForms().asSequence().filter { getUser(it.creator).user!!.role == Role.ADMIN || it.creator == username }
+                            .filter { form ->
+                                user.role == Role.ADMIN || (form.submitRoles.contains(null) || form.submitRoles.contains(role))
+                            }.toList().let { globalGson.toJson(it) }
                 }
             }
 
@@ -297,7 +300,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerUtilsEndpoints() {
+    private fun registerUtilsEndpoints() {
         path("/utils") {
             get("/random-form-id") { _, _ -> getRandomFormId() }
             get("/generate-response-id") { _, _ -> getRandomResponseId() }
@@ -306,7 +309,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerEmailEndpoints() {
+    private fun registerEmailEndpoints() {
         path("/mail") {
             post("/send") { request, _ ->
                 val queuedMail = globalGson.fromJson(request.body(), QueuedMail::class.java)
@@ -361,7 +364,7 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun registerNotificationsEndpoints() {
+    private fun registerNotificationsEndpoints() {
         path("/notifications/:username") {
             post("/form/:form") { request, _ ->
                 val username = request.params(":username")
@@ -380,65 +383,71 @@ class FormBackend(val frontendIp: String) {
         }
     }
 
-    fun expireOldVerificationRequests() {
+    private fun expireOldVerificationRequests() {
         r.table("email_verification").filter { it.g("expiry").lt(System.currentTimeMillis()) }.delete().runNoReply(conn)
     }
 
-    fun getVerificationRequest(username: String) = asPojo(globalGson, r.table("email_verification").get(username).run(conn), EmailVerification::class.java)
-    fun getVerificationRequests() = r.table("email_verification").run<Any>(conn).queryAsArrayList(globalGson, EmailVerification::class.java).filterNotNull()
+    private fun getVerificationRequest(username: String) = asPojo(globalGson, r.table("email_verification").get(username).run(conn), EmailVerification::class.java)
+    private fun getVerificationRequests() = r.table("email_verification").run<Any>(conn).queryAsArrayList(globalGson, EmailVerification::class.java).filterNotNull()
 
-    fun getUser(username: String): SparkUserResponse {
+    private fun getUser(username: String): SparkUserResponse {
         return SparkUserResponse(asPojo(globalGson, r.table("users").get(username).run(conn), User::class.java),
                 asPojo(globalGson, r.table("logins").get(username).run(conn), UserLogin::class.java))
     }
 
-    fun getForms(): List<Form> = r.table("forms").run<Any>(conn).queryAsArrayList(globalGson, Form::class.java).filterNotNull()
+    private fun getForms(): List<Form> = r.table("forms").run<Any>(conn).queryAsArrayList(globalGson, Form::class.java).filterNotNull()
 
-    fun getResponsesFor(form: Form): List<FormResponseDatabaseWrapper> {
+    private fun getResponsesFor(form: Form): List<FormResponseDatabaseWrapper> {
         return r.table("responses").getAll(form.id).optArg("index", "formId").run<Any>(conn)
                 .queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
     }
 
-    fun getResponses(): List<FormResponseDatabaseWrapper> {
+    private fun getResponses(): List<FormResponseDatabaseWrapper> {
         return r.table("responses").run<Any>(conn).queryAsArrayList(globalGson, FormResponseDatabaseWrapper::class.java).filterNotNull()
     }
 
-    fun getRandomFormId(): String {
+    private fun getRandomFormId(): String {
         val randomString = RandomStringUtils.randomAlphanumeric(6)
         return if (getForms().find { it.id == randomString } == null) randomString else getRandomFormId()
     }
 
-    fun getRandomResponseId(): String {
+    private fun getRandomResponseId(): String {
         val randomId = r.uuid().run<String>(conn)
         return if (getResponses().find { it.id == randomId } == null) randomId else getRandomResponseId()
     }
 
-    fun getRandomId(): String = r.uuid().run(conn)
+    private fun getRandomId(): String = r.uuid().run(conn)
 
-    fun getCredential(id: String) = asPojo(globalGson, r.table("credentials").get(id).run(conn), Credential::class.java)!!.value
+    private fun getCredential(id: String) = asPojo(globalGson, r.table("credentials").get(id).run(conn), Credential::class.java)!!.value
 
-    fun sendEmail(queuedMail: QueuedMail) = Mail.using(mailgunConfig)
+    private fun sendEmail(queuedMail: QueuedMail) = Mail.using(mailgunConfig)
             .to(queuedMail.to)
             .subject(queuedMail.subject)
             .html(queuedMail.body.replace("\n", "").replace("[nl]", "<br>"))
             .build()
             .sendAsync()
 
-    fun initiateMailgunConfig() {
+    private fun initiateMailgunConfig() {
         mailgunConfig = Configuration()
                 .domain("chsforms.adamratzman.com")
                 .apiKey(getCredential("mailgun_key"))
                 .from("CHSForms (Carmel High School)", "noreply@chsforms.adamratzman.com")
     }
 
-    fun renderTemplate(map: MutableMap<Any, Any>, templatePath: String): String {
+    /**
+     * Render a template from the frontend using the backend
+     */
+    private fun renderTemplate(map: MutableMap<Any, Any>, templatePath: String): String {
         map["key"] = key
         map["path"] = templatePath
 
         return Jsoup.connect("$frontend/forms/xt/render").requestBody(globalGson.toJson(map)).post().body().text()
     }
 
-    fun getEmailMap() = mutableMapOf<Any, Any>("settingsLink" to "http://$frontendIp/settings")
+    /**
+     * Map the obligatory settingsLink object used in email notification templates
+     */
+    private fun getEmailMap() = mutableMapOf<Any, Any>("settingsLink" to "http://$frontendIp/settings")
 }
 
-fun Long.toDateTime() = DateFormat.getDateTimeInstance().format(Date.from(Instant.ofEpochMilli(this)))
+fun Long.toDateTime() = DateFormat.getDateTimeInstance().format(Date.from(Instant.ofEpochMilli(this)))!!

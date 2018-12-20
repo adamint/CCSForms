@@ -22,7 +22,9 @@ fun FormFrontend.registerManageEndpoints() {
                 if (user == null) response.redirect(getLoginRedirect(request, "/forms/manage"))
                 else {
                     map["pageTitle"] = "Manage Forms"
-                    val forms = getFormWithManagementPermission(user.username)
+                    val forms = getFormWithManagementPermission(user.username).map { form ->
+                        form to getResponsesFor(form.id!!).let { if (it.isEmpty()) null else it.size }
+                    }
                     map["hasForms"] = forms.isNotEmpty()
                     map["forms"] = forms
                     map["isAdmin"] = user.role == Role.ADMIN

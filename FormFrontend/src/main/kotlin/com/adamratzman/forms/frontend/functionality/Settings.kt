@@ -23,7 +23,7 @@ fun FormFrontend.registerSettingsEndpoints() {
         get("") { request, response ->
             val map = getMap(request, "Change Settings")
             if (map["user"] == null) response.redirect(getLoginRedirect(request, "/settings"))
-
+            map["username"] = (map["user"] as User).username
             handlebars.render(ModelAndView(map, "settings.hbs"))
         }
 
@@ -34,7 +34,6 @@ fun FormFrontend.registerSettingsEndpoints() {
             else {
                 val verificationRequest = getVerificationRequest(user.username)
                 if (verificationRequest == null) response.redirect("/settings")
-                println(verificationRequest)
                 map["description"] = "We sent an email verification request to ${verificationRequest.email}. Please check your email. " +
                         "This request will expire in ${ceil((verificationRequest.expiry - System.currentTimeMillis()).toDouble().div(1000))} seconds" +
                         "<br><br>" +

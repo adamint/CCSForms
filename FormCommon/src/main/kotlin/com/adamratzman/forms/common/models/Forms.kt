@@ -6,6 +6,12 @@ data class Form(var id: String?, val creator: String, val name: String, val desc
                 var allowMultipleSubmissions: Boolean, var creationDate: Long,
                 val expireDate: Long?, var active: Boolean, val formQuestions: MutableList<FormQuestion>,
                 val additionalNotificationSettings: MutableList<FormSpecificNotificationSettings> = mutableListOf()) {
+    /**
+     * There's no good way to compare objects this complicated with the parameters I wanted, so I decided to implement
+     * an identical function myself
+     *
+     * @return whether this form is structurally equivalent to [other]
+     */
     infix fun isIdenticalTo(other: Form): Boolean {
         return if (other.formQuestions.size != formQuestions.size) false
         else other.formQuestions.filterNot { otherQuestion ->

@@ -16,6 +16,9 @@ data class UserLogin(val username: String, val salt: ByteArray, val hash: ByteAr
         return true
     }
 
+    /**
+     * Required to implement due to the primitive array type being used as a parameter
+     */
     override fun hashCode(): Int {
         var result = username.hashCode()
         result = 31 * result + Arrays.hashCode(salt)
@@ -44,4 +47,9 @@ enum class Role(val readable: String, val position: Int) {
             }
 }
 
+/**
+ * Represents a request for user data. Since the [user] and [login] may not be found, they are nullable
+ *
+ * @return nullable [User] and [UserLogin] data for the specified username
+ */
 data class SparkUserResponse(val user: User?, val login: UserLogin?)

@@ -28,7 +28,8 @@ fun main(args: Array<String>) {
 class FormFrontend {
     val databaseBase = "http://backend"
     val handlebars = HandlebarsTemplateEngine()
-    val key = RandomStringUtils.randomAlphanumeric(35)
+    val key = RandomStringUtils.randomAlphanumeric(35)!!
+    // the unique key used so that the backend can securely communicate with the frontend
 
     init {
         port(80)
@@ -50,6 +51,7 @@ class FormFrontend {
         registerMiscEndpoints()
 
         var start = false
+        // hold until it can successfully reach the backend
         while (!start) {
             try {
                 Jsoup.connect("$databaseBase/utils/key").requestBody(key).post()
@@ -61,20 +63,27 @@ class FormFrontend {
         println("Started frontend")
     }
 
+    /**
+     * Return a map of required or useful objects for use in Handlebars templates
+      */
     internal fun getMap(request: Request, pageTitle: String): HashMap<String, Any?> {
         val map = hashMapOf<String, Any?>()
         val session = request.session()
         val user: User? = session.attribute<User>("user")
         user?.let {
+            // perform request-based re-authentication
             if (getUser(user.username) != user) session.removeAttribute("user") else {
                 map["user"] = user
                 map["role"] = user.role
             }
 
             Runnable {
+                // update authorization for the next request
                 session.attribute("user", getUser(user.username))
             }.run()
         }
+
+        // put default notif settings
         if (user != null && user.userNotificationSettings == null) user.userNotificationSettings = UserNotificationSettings()
 
         if (!map.containsKey("role")) map["role"] = Role.NOT_LOGGED_IN
@@ -90,9 +99,12 @@ class FormFrontend {
     private fun encode(thing: String) = URLEncoder.encode(thing, "UTF-8")
 
     private fun registerHandlebarsHelpers() {
+        // use reflection to get the integrated Handlebars object
         val field = handlebars::class.java.getDeclaredField("handlebars")
         field.isAccessible = true
         val handle = field.get(handlebars) as Handlebars
+
+        // register streq helper that returns true if two strings equal each other (ignore case)
         handle.registerHelper("streq") { first: Any?, options: Options ->
             if (options.params[0].toString().equals(first?.toString(), true)) {
                 options.fn()
@@ -100,9 +112,15 @@ class FormFrontend {
         }
     }
 
+    /**
+     * Return data retrieved from [path] from the backend as a String
+     */
     internal fun getFromBackend(path: String): String {
         return Jsoup.connect("$databaseBase$path").get().body().text()
     }
 }
 
-fun Long.toDate() = DateFormat.getDateInstance().format(Date.from(Instant.ofEpochMilli(this)))
+/**
+ * Transform a millis long into a readable date
+ */
+fun Long.toDate() = DateFormat.getDateInstance().format(Date.from(Instant.ofEpochMilli(this)))!!
